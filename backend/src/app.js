@@ -5,15 +5,17 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 
 const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
+const { getDatabaseStatus } = require('./config/database');
 const routes = require('./routes');
+const config = require('./config/config');
 
 const app = express();
 
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: config.corsOrigin,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-  credentials: true
+  credentials: false
 }));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -39,7 +41,23 @@ app.get('/', (req, res) => {
     data: {
       name: 'ERP Modular',
       version: '1.0.0',
-      mode: process.env.NODE_ENV || 'development'
+      mode: config.nodeEnv
+    }
+  });
+});
+
+app.get('/api/health', (req, res) => {
+  const database = getDatabaseStatus();
+
+  res.status(database.state === 'connected' ? 200 : 503).json({
+    success: database.state === 'connected',
+    message: database.state === 'connected'
+      ? 'ERP disponible'
+      : 'ERP no está listo',
+    data: {
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      database
     }
   });
 });
