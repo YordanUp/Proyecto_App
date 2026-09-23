@@ -1,0 +1,17 @@
+export { default as AuditPage } from './Monitoring/AuditPage';
+export { default as CategoriesPage } from './Categories/CategoriesPage';
+export { default as CatalogPage } from './Catalog/CatalogPage';
+export { default as DashboardPage } from './Dashboard/DashboardPage';
+export { default as FinancePage } from './Finance/FinancePage';
+export { default as IntegrationsPage } from './Integrations/IntegrationsPage';
+export { default as InventoryPage } from './Inventory/InventoryPage';
+export { default as LoginPage } from './Login/LoginPage';
+export { default as NotFoundPage } from './NotFound/NotFoundPage';
+export { default as NotificationsPage } from './Monitoring/NotificationsPage';
+export { default as ProductsPage } from './Products/ProductsPage';
+export { default as PurchasesPage } from './Purchases/PurchasesPage';
+export { default as ReportsPage } from './Reports/ReportsPage';
+export { default as RolesPage } from './Roles/RolesPage';
+export { default as SalesPage } from './Sales/SalesPage';
+export { default as SettingsPage } from './Settings/SettingsPage';
+export { default as UsersPage } from './Users/UsersPage';
