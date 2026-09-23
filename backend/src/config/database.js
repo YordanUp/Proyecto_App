@@ -1,15 +1,18 @@
 const mongoose = require('mongoose');
+const config = require('./config');
 
 async function connectDatabase() {
-  const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/erp_dev';
+  if (!config.mongoUri) {
+    throw new Error('MONGODB_URI no está configurado.');
+  }
 
   try {
-    await mongoose.connect(mongoUri, {
+    await mongoose.connect(config.mongoUri, {
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 5000
     });
 
-    console.log('MongoDB conectado correctamente');
+    console.log(`MongoDB conectado correctamente: ${mongoose.connection.name}`);
     return mongoose.connection;
   } catch (error) {
     console.error('Error conectando a MongoDB:', error.message);
@@ -17,4 +20,18 @@ async function connectDatabase() {
   }
 }
 
-module.exports = { connectDatabase };
+function getDatabaseStatus() {
+  const states = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  };
+
+  return {
+    state: states[mongoose.connection.readyState] || 'unknown',
+    name: mongoose.connection.name || null
+  };
+}
+
+module.exports = { connectDatabase, getDatabaseStatus };
