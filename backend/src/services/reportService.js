@@ -1,8 +1,7 @@
-const { reportSeed, notificationSeed, auditSeed } = require('../data/reports');
+const { reportSeed, notificationSeed } = require('../data/reports');
 
 const reports = reportSeed;
 const notifications = notificationSeed;
-const audits = auditSeed;
 
 function listReports() {
   return reports;
@@ -47,32 +46,9 @@ function createNotification(data) {
   return notification;
 }
 
-function listAuditLogs() {
-  return audits;
-}
-
-function createAuditLog(data) {
-  if (!data.action || !data.entity) {
-    throw new Error('Acción y entidad son requeridos');
-  }
-
-  const audit = {
-    id: `aud${Date.now()}`,
-    action: data.action,
-    userId: data.userId || 'system',
-    entity: data.entity,
-    createdAt: new Date().toISOString()
-  };
-
-  audits.push(audit);
-  return audit;
-}
-
 module.exports = {
   listReports,
   createReport,
   listNotifications,
-  createNotification,
-  listAuditLogs,
-  createAuditLog
+  createNotification
 };

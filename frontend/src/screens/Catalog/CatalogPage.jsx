@@ -1,7 +1,7 @@
+import { API_URL, apiFetch } from '../../services/api';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 export default function CatalogPage({ session, onLogout }) {
   const [clients, setClients] = useState([]);
@@ -21,9 +21,9 @@ export default function CatalogPage({ session, onLogout }) {
         }
 
         const [clientsResponse, suppliersResponse, categoriesResponse] = await Promise.all([
-          fetch(`${API_URL}/api/clients`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(`${API_URL}/api/suppliers`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(`${API_URL}/api/categories`, { headers: { Authorization: `Bearer ${token}` } })
+          apiFetch(`${API_URL}/api/clients`, { headers: { Authorization: `Bearer ${token}` } }),
+          apiFetch(`${API_URL}/api/suppliers`, { headers: { Authorization: `Bearer ${token}` } }),
+          apiFetch(`${API_URL}/api/categories`, { headers: { Authorization: `Bearer ${token}` } })
         ]);
 
         const clientsPayload = await clientsResponse.json();

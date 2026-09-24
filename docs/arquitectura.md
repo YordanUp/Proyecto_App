@@ -1,42 +1,21 @@
-# Arquitectura del ERP
+# Arquitectura actual
 
-## Visión general
+## Capas implementadas
 
-El ERP se diseña como un sistema modular con un backend centralizado y un frontend reutilizable para web y móvil. La intención es mantener separación clara de responsabilidades y preparar el sistema para crecimiento incremental.
+Para usuarios, roles, catálogos y auditoría, el backend sigue `Route → Controller → Service → Model → MongoDB`. Las rutas declaran endpoint y permiso; los controladores traducen HTTP; los servicios aplican validaciones y transacciones; Mongoose define persistencia, restricciones e índices.
 
-## Capa frontend
+La aplicación no escucha hasta conectar MongoDB. El proceso gestiona cierre ordenado, y Mongoose mantiene/reporta el estado de la conexión. El health check comprueba también la conexión a la base.
 
-- React Native para aplicaciones móviles.
-- React Native Web para web.
-- Navegación separada por módulos.
-- Servicios HTTP encapsulados para consumir la API.
-- Estado global para autenticación, permisos y notificaciones.
+## Estado por dominios
 
-## Capa backend
+Persistente: users, roles, categorías, productos, clientes, proveedores, almacenes y audit logs.
 
-- Express.js como servicio HTTP.
-- Controladores para manejar solicitudes.
-- Servicios para reglas de negocio.
-- Modelos para MongoDB.
-- Middleware para seguridad, validación, errores y autenticación.
-- Utilidades para respuestas, fechas, auditoría y reportes.
+Prototipo con datos en memoria: inventario, ventas, compras, finanzas, dashboard, reportes, notificaciones, ajustes e integraciones. Sus services siguen leyendo `src/data/`; rutas existentes se conservan, pero no representan operaciones persistentes.
 
-## Capa de datos
+## Transacciones
 
-Se usará MongoDB Atlas con colecciones específicas por dominio. Las relaciones se gestionarán con referencias y documentos embebidos cuando correspondan.
+Las mutaciones persistentes del núcleo y la auditoría correspondiente se ejecutan dentro de transacciones de MongoDB. Por ello el entorno debe soportar replica sets; MongoDB Atlas cumple este requisito. El inventario transaccional se desarrollará como etapa posterior.
 
-## Principios clave
+## Frontend
 
-- Frontend no conecta a MongoDB directamente.
-- Reglas de negocio y validaciones críticas en backend.
-- Auditoría obligatoria en cambios importantes.
-- Permisos basados en roles (RBAC) con permisos específicos.
-- Módulos aislados para permitir mantenimiento incremental.
-
-## Flujo principal
-
-1. Usuario accede desde web o móvil.
-2. Frontend autentica a través de la API.
-3. Backend valida credenciales, permisos y sesión.
-4. Backend ejecuta servicios y consulta MongoDB.
-5. Frontend presenta resultados con manejo de loaders, errores y estados vacíos.
+React/Vite conserva sus pantallas actuales. `src/services/api.js` centraliza URL base, token, cabeceras, parseo JSON y errores HTTP. La migración a React Native/Web aún no se ha realizado.

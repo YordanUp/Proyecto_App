@@ -1,20 +1,28 @@
 const mongoose = require('mongoose');
+const config = require('./config');
 
 async function connectDatabase() {
-  const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/erp_dev';
+  if (!config.mongoUri) throw new Error('MONGODB_URI es obligatorio; no se usa una base local automáticamente');
+  mongoose.set('strictQuery', true);
+  mongoose.set('autoIndex', config.nodeEnv !== 'production');
 
   try {
-    await mongoose.connect(mongoUri, {
+    await mongoose.connect(config.mongoUri, {
       maxPoolSize: 10,
-      serverSelectionTimeoutMS: 5000
+      minPoolSize: 0,
+      serverSelectionTimeoutMS: 10000,
+      autoIndex: config.nodeEnv !== 'production'
     });
 
     console.log('MongoDB conectado correctamente');
     return mongoose.connection;
   } catch (error) {
-    console.error('Error conectando a MongoDB:', error.message);
-    throw error;
+    throw new Error(`No fue posible conectar a MongoDB: ${error.message}`, { cause: error });
   }
 }
 
-module.exports = { connectDatabase };
+function disconnectDatabase() {
+  return mongoose.disconnect();
+}
+
+module.exports = { connectDatabase, disconnectDatabase, mongoose };

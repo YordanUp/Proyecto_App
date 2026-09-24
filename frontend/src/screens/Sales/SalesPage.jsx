@@ -1,7 +1,7 @@
+import { API_URL, apiFetch } from '../../services/api';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 export default function SalesPage({ session, onLogout }) {
   const [quotations, setQuotations] = useState([]);
@@ -20,10 +20,10 @@ export default function SalesPage({ session, onLogout }) {
         }
 
         const [quotationsResponse, salesResponse] = await Promise.all([
-          fetch(`${API_URL}/api/sales/quotations`, {
+          apiFetch(`${API_URL}/api/sales/quotations`, {
             headers: { Authorization: `Bearer ${token}` }
           }),
-          fetch(`${API_URL}/api/sales/sales`, {
+          apiFetch(`${API_URL}/api/sales/sales`, {
             headers: { Authorization: `Bearer ${token}` }
           })
         ]);

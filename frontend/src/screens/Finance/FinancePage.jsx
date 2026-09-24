@@ -1,7 +1,7 @@
+import { API_URL, apiFetch } from '../../services/api';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 export default function FinancePage({ session, onLogout }) {
   const [accounts, setAccounts] = useState([]);
@@ -20,10 +20,10 @@ export default function FinancePage({ session, onLogout }) {
         }
 
         const [accountsResponse, paymentsResponse] = await Promise.all([
-          fetch(`${API_URL}/api/finance/accounts`, {
+          apiFetch(`${API_URL}/api/finance/accounts`, {
             headers: { Authorization: `Bearer ${token}` }
           }),
-          fetch(`${API_URL}/api/finance/payments`, {
+          apiFetch(`${API_URL}/api/finance/payments`, {
             headers: { Authorization: `Bearer ${token}` }
           })
         ]);

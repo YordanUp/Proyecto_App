@@ -1,7 +1,7 @@
+import { API_URL, apiFetch } from '../../services/api';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 export default function InventoryPage({ session, onLogout }) {
   const [inventory, setInventory] = useState([]);
@@ -20,10 +20,10 @@ export default function InventoryPage({ session, onLogout }) {
         }
 
         const [inventoryResponse, warehouseResponse] = await Promise.all([
-          fetch(`${API_URL}/api/inventory`, {
+          apiFetch(`${API_URL}/api/inventory`, {
             headers: { Authorization: `Bearer ${token}` }
           }),
-          fetch(`${API_URL}/api/inventory/warehouses`, {
+          apiFetch(`${API_URL}/api/inventory/warehouses`, {
             headers: { Authorization: `Bearer ${token}` }
           })
         ]);

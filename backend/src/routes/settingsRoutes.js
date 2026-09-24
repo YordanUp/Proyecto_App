@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.use(authenticateToken);
 
-router.get('/', authorize(['settings:read']), getSettings);
-router.post('/', authorize(['settings:write']), createSettingController);
+router.get('/', authorize(['settings.read']), getSettings);
+router.post('/', authorize(['settings.create']), createSettingController);
 
 module.exports = router;

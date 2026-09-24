@@ -6,11 +6,11 @@ const router = express.Router();
 
 router.use(authenticateToken);
 
-router.get('/', authorize(['users:read']), getUsers);
-router.get('/:id', authorize(['users:read']), getUser);
-router.post('/', authorize(['users:write']), createUserController);
-router.put('/:id', authorize(['users:write']), updateUserController);
-router.patch('/:id/status', authorize(['users:write']), toggleStatus);
-router.patch('/:id/role', authorize(['users:write']), changeRole);
+router.get('/', authorize(['users.read']), getUsers);
+router.get('/:id', authorize(['users.read']), getUser);
+router.post('/', authorize(['users.create', 'users.assign_role']), createUserController);
+router.put('/:id', authorize(['users.update']), updateUserController);
+router.patch('/:id/status', authorize(['users.update']), toggleStatus);
+router.patch('/:id/role', authorize(['users.update', 'users.assign_role', 'roles.read']), changeRole);
 
 module.exports = router;

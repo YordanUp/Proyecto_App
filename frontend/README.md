@@ -1,26 +1,12 @@
 # Frontend ERP
 
-## Objetivo
+Frontend web React + Vite existente. Las pantallas se conservan; no se ha iniciado la migración a React Native.
 
-Proveer una interfaz reutilizable para web y móvil con React Native Web y un diseño modular de pantallas por dominio.
+`src/services/api.js` contiene el cliente común de API: URL base (`VITE_API_URL`), cabeceras/token, JSON y mensajes de error. Los catálogos/usuarios/roles consumen persistencia Mongo a través del backend; las vistas de módulos pendientes aún muestran las respuestas prototipo indicadas en el README raíz.
 
-## Estructura base
-
-- `src/components` para reutilización.
-- `src/screens` para módulos por dominio.
-- `src/navigation` para rutas y navegación.
-- `src/services` para consumo de API.
-- `src/context` para estado global.
-
-## Base inicial
-
-Se ha configurado una shell web con:
-
-- Vite
-- React
-- React Router
-- pantallas base de Login, Dashboard y NotFound
-
-## Desarrollo futuro
-
-Se continuará con autenticación, usuarios, roles y permisos; luego módulos de negocio y adaptación a React Native.
+```powershell
+npm ci
+npm run dev
+npm test
+npm run build
+```

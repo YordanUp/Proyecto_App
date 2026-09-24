@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 export default function LoginPage({ onLogin }) {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: 'admin@erp.local', password: 'admin123' });
+  const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 

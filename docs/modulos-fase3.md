@@ -1,33 +1,7 @@
-# Fase 3: módulos base de negocio
+# Catálogos base y límites de fase
 
-## Objetivo
+Persisten en MongoDB categorías, productos, clientes, proveedores y almacenes. Las rutas permiten leer, crear, actualizar y desactivar lógicamente. Hay índices de unicidad/búsqueda, validaciones de campos y reglas de precios, filtros, búsqueda, orden y paginación.
 
-Dejar preparada la base para:
+Las escrituras se registran en auditoría dentro de la misma transacción. Los permisos granulares se validan en el backend.
 
-- clientes
-- proveedores
-- categorías
-- productos
-- almacenes
-- inventario
-
-## Reglas de negocio base
-
-- El código de producto debe ser único.
-- No se permite inventario negativo salvo configuración explícita.
-- Los movimientos de inventario se deben registrar con usuario, almacén, motivo y documento.
-- Los permisos deben validarse en backend.
-- Las operaciones de negocio deberán registrarse con auditoría en fases posteriores.
-
-## Endpoints base preparados
-
-- GET /api/products
-- POST /api/products
-- GET /api/clients
-- POST /api/clients
-- GET /api/suppliers
-- POST /api/suppliers
-- GET /api/categories
-- POST /api/categories
-- GET /api/inventory
-- POST /api/inventory/adjust
+El inventario real no se ha construido. `GET /api/inventory`, sus movimientos y su almacén legacy siguen conectados a datos de demostración; usa `/api/warehouses` para el catálogo persistente de almacenes. Los arrays del inventario deben migrarse al implementar el primer módulo empresarial.

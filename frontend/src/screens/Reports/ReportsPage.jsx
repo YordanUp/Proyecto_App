@@ -1,7 +1,7 @@
+import { API_URL, apiFetch } from '../../services/api';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 export default function ReportsPage({ session, onLogout }) {
   const [reports, setReports] = useState([]);
@@ -21,13 +21,13 @@ export default function ReportsPage({ session, onLogout }) {
         }
 
         const [reportsResponse, notificationsResponse, auditResponse] = await Promise.all([
-          fetch(`${API_URL}/api/reports/reports`, {
+          apiFetch(`${API_URL}/api/reports/reports`, {
             headers: { Authorization: `Bearer ${token}` }
           }),
-          fetch(`${API_URL}/api/reports/notifications`, {
+          apiFetch(`${API_URL}/api/reports/notifications`, {
             headers: { Authorization: `Bearer ${token}` }
           }),
-          fetch(`${API_URL}/api/reports/audit`, {
+          apiFetch(`${API_URL}/api/reports/audit`, {
             headers: { Authorization: `Bearer ${token}` }
           })
         ]);
@@ -161,9 +161,9 @@ export default function ReportsPage({ session, onLogout }) {
                   auditLogs.map((log) => (
                     <tr key={log.id}>
                       <td>{log.action}</td>
-                      <td>{log.entity}</td>
-                      <td>{log.userId}</td>
-                      <td>{log.createdAt ? new Date(log.createdAt).toLocaleString() : '-'}</td>
+                      <td>{log.module}</td>
+                      <td>{log.userId?.name || log.userId?.email || 'Sistema'}</td>
+                      <td>{log.occurredAt ? new Date(log.occurredAt).toLocaleString() : '-'}</td>
                     </tr>
                   ))
                 )}

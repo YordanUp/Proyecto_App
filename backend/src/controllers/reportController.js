@@ -1,4 +1,5 @@
-const { listReports, createReport, listNotifications, createNotification, listAuditLogs, createAuditLog } = require('../services/reportService');
+const { listReports, createReport, listNotifications, createNotification } = require('../services/reportService');
+const auditService = require('../services/auditService');
 const { successResponse, errorResponse } = require('../utils/response');
 
 function getReports(req, res) {
@@ -27,17 +28,11 @@ function createNotificationController(req, res) {
   }
 }
 
-function getAuditLogs(req, res) {
-  return successResponse(res, 200, 'Auditoría consultada', listAuditLogs());
-}
-
-function createAuditLogController(req, res) {
+async function getAuditLogs(req, res, next) {
   try {
-    const log = createAuditLog(req.body);
-    return successResponse(res, 201, 'Registro de auditoría creado correctamente', log);
-  } catch (error) {
-    return errorResponse(res, 400, error.message, 'AUDIT_CREATE_ERROR');
-  }
+    const result = await auditService.listAuditLogs(req.query);
+    return res.status(200).json({ success: true, message: 'Auditoría consultada', data: result.items, pagination: result.pagination });
+  } catch (error) { return next(error); }
 }
 
 module.exports = {
@@ -46,5 +41,4 @@ module.exports = {
   getNotifications,
   createNotificationController,
   getAuditLogs,
-  createAuditLogController
 };

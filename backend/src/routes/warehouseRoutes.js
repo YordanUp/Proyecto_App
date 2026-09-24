@@ -1,0 +1,11 @@
+const express = require('express');
+const { authenticateToken, authorize } = require('../middleware/auth');
+const { getWarehouses, getWarehouse, createWarehouseController, updateWarehouse, deleteWarehouse } = require('../controllers/catalogController');
+const router = express.Router();
+router.use(authenticateToken);
+router.get('/', authorize(['warehouses.read']), getWarehouses);
+router.post('/', authorize(['warehouses.create']), createWarehouseController);
+router.get('/:id', authorize(['warehouses.read']), getWarehouse);
+router.put('/:id', authorize(['warehouses.update']), updateWarehouse);
+router.delete('/:id', authorize(['warehouses.delete']), deleteWarehouse);
+module.exports = router;

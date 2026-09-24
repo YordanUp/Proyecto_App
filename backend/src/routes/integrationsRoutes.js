@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.use(authenticateToken);
 
-router.get('/', authorize(['integrations:read']), getIntegrations);
-router.post('/', authorize(['integrations:write']), createIntegrationController);
+router.get('/', authorize(['integrations.read']), getIntegrations);
+router.post('/', authorize(['integrations.create']), createIntegrationController);
 
 module.exports = router;

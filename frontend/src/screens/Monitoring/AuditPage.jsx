@@ -1,7 +1,7 @@
+import { API_URL, apiFetch } from '../../services/api';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 export default function AuditPage({ session, onLogout }) {
   const [entries, setEntries] = useState([]);
@@ -18,7 +18,7 @@ export default function AuditPage({ session, onLogout }) {
           return;
         }
 
-        const response = await fetch(`${API_URL}/api/reports/audit`, {
+        const response = await apiFetch(`${API_URL}/api/reports/audit`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -78,11 +78,11 @@ export default function AuditPage({ session, onLogout }) {
               ) : (
                 entries.map((entry) => (
                   <tr key={entry.id}>
-                    <td>{new Date(entry.timestamp).toLocaleString()}</td>
-                    <td>{entry.user}</td>
+                    <td>{entry.occurredAt ? new Date(entry.occurredAt).toLocaleString() : '-'}</td>
+                    <td>{entry.userId?.name || entry.userId?.email || 'Sistema'}</td>
                     <td>{entry.action}</td>
-                    <td>{entry.entity}</td>
-                    <td>{entry.details}</td>
+                    <td>{entry.module}</td>
+                    <td>{entry.recordId || '-'}</td>
                   </tr>
                 ))
               )}

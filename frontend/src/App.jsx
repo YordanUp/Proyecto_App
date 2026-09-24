@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { apiRequest } from './services/api';
 import {
   AuditPage,
   CategoriesPage,
@@ -22,7 +23,6 @@ import {
 
 const STORAGE_KEY = 'erp_token';
 const STORAGE_USER = 'erp_user';
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 function readSession() {
   const token = localStorage.getItem(STORAGE_KEY);
@@ -61,20 +61,10 @@ export default function App() {
 
   async function handleLogin(credentials) {
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
+      const payload = await apiRequest('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(credentials)
       });
-
-      const payload = await response.json();
-
-      if (!response.ok || !payload?.success) {
-        return {
-          success: false,
-          message: payload?.message || 'Credenciales inválidas'
-        };
-      }
 
       const { token, user } = payload.data;
       const nextSession = { token, user };
@@ -87,7 +77,7 @@ export default function App() {
     } catch (error) {
       return {
         success: false,
-        message: 'No se pudo conectar con el backend.'
+        message: error.message || 'No se pudo conectar con el backend.'
       };
     }
   }

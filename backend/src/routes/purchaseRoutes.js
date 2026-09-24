@@ -6,9 +6,9 @@ const router = express.Router();
 
 router.use(authenticateToken);
 
-router.get('/orders', authorize(['purchases:read']), getPurchaseOrders);
-router.post('/orders', authorize(['purchases:write']), createPurchaseOrderController);
-router.get('/', authorize(['purchases:read']), getPurchases);
-router.post('/', authorize(['purchases:write']), createPurchaseController);
+router.get('/orders', authorize(['purchases.read']), getPurchaseOrders);
+router.post('/orders', authorize(['purchases.create']), createPurchaseOrderController);
+router.get('/', authorize(['purchases.read']), getPurchases);
+router.post('/', authorize(['purchases.create']), createPurchaseController);
 
 module.exports = router;

@@ -26,18 +26,7 @@ const notificationSeed = [
   }
 ];
 
-const auditSeed = [
-  {
-    id: 'aud1',
-    action: 'usuario_creado',
-    userId: 'u1',
-    entity: 'users',
-    createdAt: '2026-01-03T00:00:00.000Z'
-  }
-];
-
 module.exports = {
   reportSeed,
-  notificationSeed,
-  auditSeed
+  notificationSeed
 };

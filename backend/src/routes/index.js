@@ -14,17 +14,19 @@ const dashboardRoutes = require('./dashboardRoutes');
 const reportRoutes = require('./reportRoutes');
 const settingsRoutes = require('./settingsRoutes');
 const integrationsRoutes = require('./integrationsRoutes');
+const warehouseRoutes = require('./warehouseRoutes');
+const { mongoose } = require('../config/database');
 
 const router = express.Router();
 
 router.get('/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Backend disponible',
-    data: {
-      uptime: process.uptime(),
-      timestamp: new Date().toISOString()
-    }
+  const ready = mongoose.connection.readyState === 1;
+  res.status(ready ? 200 : 503).json(ready ? {
+    success: true, message: 'Backend y base de datos disponibles',
+    data: { status: 'ready', database: 'connected', uptime: process.uptime(), timestamp: new Date().toISOString() }
+  } : {
+    success: false, message: 'Base de datos no disponible', error: 'DATABASE_UNAVAILABLE',
+    data: { status: 'not_ready', database: 'disconnected', timestamp: new Date().toISOString() }
   });
 });
 
@@ -37,13 +39,16 @@ router.get('/', (req, res) => {
         'GET /api/health',
         'GET /api',
         'POST /api/auth/login',
+        'GET /api/auth/me',
         'GET /api/auth/profile',
+        'PATCH /api/auth/password',
         'GET /api/users',
         'GET /api/roles',
         'GET /api/products',
         'GET /api/clients',
         'GET /api/suppliers',
         'GET /api/categories',
+        'GET /api/warehouses',
         'GET /api/inventory',
         'GET /api/sales/quotations',
         'GET /api/sales/sales',
@@ -69,6 +74,7 @@ router.use('/products', productRoutes);
 router.use('/clients', clientRoutes);
 router.use('/suppliers', supplierRoutes);
 router.use('/categories', categoryRoutes);
+router.use('/warehouses', warehouseRoutes);
 router.use('/inventory', inventoryRoutes);
 router.use('/sales', saleRoutes);
 router.use('/purchases', purchaseRoutes);

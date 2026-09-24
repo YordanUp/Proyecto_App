@@ -5,6 +5,6 @@ const { getDashboard } = require('../controllers/dashboardController');
 const router = express.Router();
 
 router.use(authenticateToken);
-router.get('/', authorize(['dashboard:read']), getDashboard);
+router.get('/', authorize(['dashboard.read']), getDashboard);
 
 module.exports = router;

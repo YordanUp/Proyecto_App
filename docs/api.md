@@ -1,39 +1,21 @@
 # API REST
 
-## Base
+Prefijo: `/api`. Las respuestas de éxito usan `{ "success": true, "message": "...", "data": ... }`; los errores usan `{ "success": false, "message": "...", "error": "ERROR_CODE" }`. Los listados de catálogos conservan `data` como array e incluyen `pagination` con página, límite, total y páginas.
 
-La API se expondrá bajo el prefijo `/api`.
+## Disponibilidad y autenticación
 
-## Endpoints base de la Fase 1
+- `GET /api/health` — 200 cuando Mongo está conectado; 503 si no lo está.
+- `POST /api/auth/login` — correo/contraseña y JWT.
+- `GET /api/auth/me` — perfil actual.
+- `PATCH /api/auth/password` — cambia la clave con la clave anterior.
+- `POST /api/auth/logout` — informa cierre stateless; el cliente elimina el JWT.
 
-- `GET /api/health` — estado del backend
-- `GET /api` — información del servicio
+Las demás rutas protegidas requieren `Authorization: Bearer <token>`. Los permisos se consultan desde el usuario/rol vigente en Mongo.
 
-## Estructura de respuesta
+## Catálogos persistentes
 
-### Éxito
+Recursos: `/users`, `/roles`, `/categories`, `/products`, `/clients`, `/suppliers`, `/warehouses`.
 
-```json
-{
-  "success": true,
-  "message": "Operación realizada correctamente",
-  "data": {}
-}
-```
+Los catálogos ofrecen `GET`, `GET /:id`, `POST`, `PUT /:id` y `DELETE /:id` (baja lógica). Los listados aceptan `search`, `status`, `page`, `limit` (1–100), `sort` y `order=asc|desc`; productos también aceptan `categoryId`.
 
-### Error
-
-```json
-{
-  "success": false,
-  "message": "Ocurrió un error",
-  "error": "ERROR_CODE"
-}
-```
-
-## Convenciones
-
-- Mantener nomenclatura consistente por módulo.
-- Desarrollar endpoints RESTful.
-- Usar validación del backend como fuente principal.
-- No enviar información sensible al frontend.
+`GET /api/reports/audit` consulta auditoría persistente, paginada y de solo lectura. Los endpoints de otros módulos que aparecen en `GET /api` siguen siendo prototipos en memoria según el README.

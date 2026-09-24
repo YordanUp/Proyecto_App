@@ -1,42 +1,15 @@
 # QA y pruebas
 
-## Enfoque
+## Estado comprobado antes de migrar
 
-Toda fase incluye validación funcional, seguridad, integridad y documentación.
+La suite anterior reportaba 38 pruebas backend y 16 frontend aprobadas. Las 38 del backend iniciaban sesión con cuentas hardcodeadas y mutaban arrays; no verificaban MongoDB. Se retiraron como evidencia de persistencia al reemplazar esas rutas.
 
-## Criterios para módulos
+## Suite actual
 
-- Código implementado.
-- API y validaciones funcionales.
-- Permisos y roles comprobados.
-- Manejo de errores validado.
-- Auditoría registrada cuando corresponde.
-- Pruebas ejecutadas.
-- Documentación actualizada.
+- `backend/tests/core.test.js`: validación de esquemas y hash bcrypt sin base de datos.
+- `backend/tests/persistence.integration.test.js`: integración HTTP real con Mongo, RBAC, duplicados, validación de catálogo y auditoría. Requiere `TEST_MONGODB_URI` a una base desechable compatible con transacciones; si falta, Node la reporta como omitida.
+- Frontend: Vitest cubre el flujo/ruteo existente; build con `npm run build`.
 
-## Estado actual verificado
+Comandos: `npm test` dentro de `backend/` y `npm test`/`npm run build` dentro de `frontend/`.
 
-- Backend: 38 pruebas aprobadas, 0 fallos.
-- Frontend: 16 pruebas aprobadas, 0 fallos.
-- Validación funcional: autenticación, rutas protegidas, flujo ERP core, reportes, monitoreo, integraciones.
-
-## Formato de pruebas
-
-Cada prueba deberá incluir:
-
-- ID
-- descripción
-- datos utilizados
-- resultado esperado
-- resultado obtenido
-- estado
-
-## Checklist de cierre
-
-- [x] Autenticación y JWT verificados.
-- [x] Roles y permisos consistentes.
-- [x] Módulos principales funcionales.
-- [x] Reportes y auditoría disponibles.
-- [x] Integraciones configuradas en el flujo del ERP.
-- [x] Documentación principes y QA actualizada.
-- [x] Pruebas backend y frontend ejecutadas con éxito.
+La fase solo se cierra después de ejecutar las suites disponibles y documentar si la integración Mongo fue ejecutada u omitida por falta de URI de pruebas.

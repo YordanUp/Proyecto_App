@@ -1,88 +1,75 @@
 # ERP Modular
 
-## Estado actual
+ERP modular en evolución. Esta etapa convierte el núcleo de identidad, autorización, catálogos y auditoría a persistencia MongoDB. No implica que todos los módulos visibles en la interfaz ya sean persistentes.
 
-El proyecto se inició desde una base vacía. No existía código fuente previo ni dependencias instaladas en el workspace. Se definió la arquitectura base para un ERP modular con frontend web/móvil, backend API REST en Node.js + Express y base de datos MongoDB Atlas.
+## Estado real del repositorio
 
-## Objetivo
+Persisten en MongoDB: usuarios, roles, categorías, productos, clientes, proveedores, almacenes y auditoría. La autenticación consulta el usuario activo y sus permisos actuales en cada petición protegida.
 
-Construir una plataforma ERP para centralizar administración, ventas, compras, inventario, finanzas, reportes, auditoría y seguridad, manteniendo un diseño modular y reutilizable entre React Native y React Native Web.
+Siguen siendo prototipos en memoria: inventario y movimientos, ventas, compras, finanzas, dashboard, reportes, notificaciones, ajustes e integraciones. Sus pantallas/endpoints no deben usarse para operar datos reales. No se migraron ni eliminaron en esta etapa.
 
-## Arquitectura general
+## Tecnologías y estructura
 
-- Frontend: React Native + React Native Web
-- Backend: Node.js + Express
-- Base de datos: MongoDB Atlas
-- Seguridad: JWT, validaciones, CORS, rate limiting, variables de entorno
-- Auditoría: registro de cambios críticos
-- Modularidad: separados por dominio y responsabilidades
+- Backend: Node.js, Express y Mongoose (`backend/`).
+- Base de datos: MongoDB Atlas; no hay fallback automático a Mongo local.
+- Frontend: React, Vite y React Router (`frontend/`).
+- Documentación del dominio y API: `docs/`.
 
-## Estructura propuesta
+Backend: `routes → controllers → services → models → MongoDB`. Las escrituras del núcleo y su evento de auditoría usan transacciones MongoDB. Configura Atlas con un replica set (Atlas lo proporciona por defecto).
 
-```text
-ERP/
-├── frontend/
-│   ├── src/
-│   ├── package.json
-│   ├── vite.config.js
-│   ├── index.html
-│   └── README.md
-├── backend/
-│   ├── src/
-│   ├── tests/
-│   ├── package.json
-│   ├── server.js
-│   ├── .env.example
-│   └── README.md
-├── docs/
-│   ├── arquitectura.md
-│   ├── base-datos.md
-│   ├── api.md
-│   ├── seguridad.md
-│   ├── qa.md
-│   └── procesos.md
-├── tests/
-│   └── qa-fase-1.md
-├── .gitignore
-├── .env.example
-├── README.md
-└── .gitignore
+## Requisitos e instalación
+
+Usa una versión LTS reciente de Node.js y una instancia de MongoDB Atlas. En PowerShell:
+
+```powershell
+Copy-Item backend\.env.example backend\.env
+cd backend
+npm ci
+npm run seed:admin
+npm run dev
 ```
 
-## Orden de implementación
+Antes de `seed:admin`, completa `.env` con un usuario de base de datos dedicado, `INITIAL_ADMIN_NAME`, `INITIAL_ADMIN_EMAIL` y `INITIAL_ADMIN_PASSWORD` (mínimo 12 caracteres). El comando crea un rol y una cuenta inicial; no existe usuario de demostración ni contraseña fija.
 
-1. Fase 1: estructura base, backend, frontend, variables de entorno, MongoDB, API básica.
-2. Fase 2: autenticación, usuarios, roles, permisos.
-3. Fase 3: clientes, proveedores, categorías, productos, almacenes.
-4. Fase 4: inventario y movimientos.
-5. Fase 5: cotizaciones, ventas y devoluciones.
-6. Fase 6: compras, recepciones y devoluciones.
-7. Fase 7: finanzas.
-8. Fase 8: dashboard, reportes y notificaciones.
-9. Fase 9: auditoría avanzada, integraciones.
-10. Fase 10: optimización, mobile, Kotlin si aplica e IA.
+En otra terminal:
 
-## Regla arquitectónica principal
+```powershell
+cd frontend
+npm ci
+npm run dev
+```
 
-El frontend no se conecta directamente a MongoDB. La comunicación sigue esta ruta:
+La URL de API web se configura como `VITE_API_URL` en el entorno de Vite; por defecto es `http://localhost:4000`.
 
-React Native / React Native Web → HTTPS → Node.js + Express → servicios y reglas de negocio → MongoDB Atlas
+## Variables de entorno
 
-## Fase actual
+`.env.example` documenta `NODE_ENV`, `PORT`, `MONGODB_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN` y `CORS_ORIGIN`, además de las tres variables para crear la cuenta inicial. `JWT_SECRET` debe ser aleatorio y de al menos 32 caracteres. Nunca guardes `.env` o credenciales reales en Git.
 
-El ERP modular quedó consolidado en las fases funcionales de negocio, seguridad, reportes, monitoreo e integraciones. La base ya está validada y el proyecto avanza hacia la etapa final de cierre: hardening, QA integral, documentación de release y preparación para despliegue.
+El backend falla al arrancar si falta `MONGODB_URI` o `JWT_SECRET`; no cambia silenciosamente a otra base. `GET /api/health` devuelve `503` si Mongo no está conectado.
 
-## Estado de validación
+En producción, crea los índices con `cd backend; npm run db:indexes` después de revisar el cluster destino.
 
-- Backend: 38 pruebas ejecutadas con 38 aprobadas.
-- Frontend: 16 pruebas ejecutadas con 16 aprobadas.
-- Cobertura funcional: autenticación, roles, permisos, catálogo, inventario, ventas, compras, finanzas, dashboard, reportes, monitoreo e integraciones.
+## Pruebas
 
-## Cierre del proyecto
+```powershell
+cd backend
+npm test
+cd ../frontend
+npm test
+npm run build
+```
 
-La entrega actual está enfocada en:
+La suite backend incluye pruebas de esquema/hash y una suite de integración que solo se ejecuta cuando `TEST_MONGODB_URI` apunta a una instancia de pruebas desechable compatible con transacciones. Aísla y elimina únicamente la base con nombre generado por la prueba. No uses una URI de producción. Sin esa variable, las pruebas de integración se reportan como omitidas, no aprobadas.
 
-1. Revisión final de seguridad y permisos.
-2. Validación de flujos críticos del ERP.
-3. Documentación de despliegue y operación.
-4. Preparación para entorno de pruebas o producción.
+## Autenticación y API
+
+- `POST /api/auth/login` entrega un JWT con sujeto, sin una copia de permisos.
+- `GET /api/auth/me` y `/api/auth/profile` devuelven perfil y permisos actuales.
+- `PATCH /api/auth/password` solicita contraseña actual y una nueva de 12–72 bytes.
+- `POST /api/auth/logout` es stateless: el cliente elimina el JWT; su vencimiento limita la sesión.
+- Las rutas protegidas consultan el usuario/rol en Mongo. Las respuestas siguen `{ success, message, data }` o `{ success, message, error }`.
+- El catálogo ofrece búsqueda, filtros, orden, paginación (25 por omisión, hasta 100) y eliminación lógica.
+
+## Limitaciones y siguiente etapa
+
+Los antiguos tests de endpoints basados en usuarios y datos inventados se retiraron como evidencia de persistencia. Los archivos `backend/src/data/` siguen siendo usados por los módulos prototipo listados arriba y se migrarán por etapas. El siguiente trabajo recomendado es preparar inventario persistente y sus movimientos atómicos antes de habilitarlo para operaciones reales.

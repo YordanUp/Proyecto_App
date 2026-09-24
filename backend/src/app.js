@@ -3,6 +3,8 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const config = require('./config/config');
+const { mongoose } = require('./config/database');
 
 const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 const routes = require('./routes');
@@ -10,8 +12,12 @@ const routes = require('./routes');
 const app = express();
 
 app.use(helmet());
+const allowedOrigins = config.corsOrigin.split(',').map(origin => origin.trim()).filter(Boolean);
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Origen no permitido'), false);
+  },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   credentials: true
 }));
@@ -39,7 +45,7 @@ app.get('/', (req, res) => {
     data: {
       name: 'ERP Modular',
       version: '1.0.0',
-      mode: process.env.NODE_ENV || 'development'
+      mode: config.nodeEnv
     }
   });
 });
