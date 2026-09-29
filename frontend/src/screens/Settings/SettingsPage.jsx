@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 
 const defaultSettings = [
   {
@@ -28,7 +27,7 @@ const defaultSettings = [
   }
 ];
 
-export default function SettingsPage({ session, onLogout }) {
+export default function SettingsPage({ session }) {
   const [settings, setSettings] = useState(defaultSettings);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -59,19 +58,7 @@ export default function SettingsPage({ session, onLogout }) {
 
   return (
     <div className="app-shell dashboard-layout">
-      <header className="topbar card">
-        <div>
-          <span className="eyebrow">Sistema</span>
-          <h1>Configuración del sistema</h1>
-        </div>
-
-        <div className="user-area">
-          <Link to="/" className="link-button">Dashboard</Link>
-          <button type="button" className="secondary" onClick={onLogout}>Cerrar sesión</button>
-        </div>
-      </header>
-
-      {error ? <div className="card warning-box">{error}</div> : null}
+{error ? <div className="card warning-box">{error}</div> : null}
 
       {loading ? (
         <div className="card">Cargando configuración...</div>

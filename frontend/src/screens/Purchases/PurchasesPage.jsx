@@ -1,9 +1,8 @@
 import { API_URL, apiFetch } from '../../services/api';
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 
 
-export default function PurchasesPage({ session, onLogout }) {
+export default function PurchasesPage({ session }) {
   const [orders, setOrders] = useState([]);
   const [purchases, setPurchases] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -53,20 +52,7 @@ export default function PurchasesPage({ session, onLogout }) {
 
   return (
     <div className="app-shell dashboard-layout">
-      <header className="topbar card">
-        <div>
-          <span className="eyebrow">Compras</span>
-          <h1>Órdenes y compras</h1>
-        </div>
-
-        <div className="user-area">
-          <Link to="/" className="link-button">Dashboard</Link>
-          <Link to="/sales" className="link-button">Ventas</Link>
-          <button type="button" className="secondary" onClick={onLogout}>Cerrar sesión</button>
-        </div>
-      </header>
-
-      {error ? <div className="card warning-box">{error}</div> : null}
+{error ? <div className="card warning-box">{error}</div> : null}
 
       {loading ? (
         <div className="card">Cargando compras...</div>

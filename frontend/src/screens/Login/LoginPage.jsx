@@ -27,6 +27,7 @@ export default function LoginPage({ onLogin }) {
     <div className="app-shell">
       <div className="card auth-card">
         <div className="auth-header">
+          <img className="auth-logo" src="/brand/logo-yordanup.png" alt="Logo YordanUp" />
           <span className="eyebrow">ERP Modular</span>
           <h2>Iniciar sesión</h2>
         </div>

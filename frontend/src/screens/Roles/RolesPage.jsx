@@ -1,9 +1,8 @@
 import { API_URL, apiFetch } from '../../services/api';
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 
 
-export default function RolesPage({ session, onLogout }) {
+export default function RolesPage({ session }) {
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -41,20 +40,7 @@ export default function RolesPage({ session, onLogout }) {
 
   return (
     <div className="app-shell dashboard-layout">
-      <header className="topbar card">
-        <div>
-          <span className="eyebrow">Seguridad</span>
-          <h1>Roles y permisos</h1>
-        </div>
-
-        <div className="user-area">
-          <Link to="/" className="link-button">Dashboard</Link>
-          <Link to="/users" className="link-button">Usuarios</Link>
-          <button type="button" className="secondary" onClick={onLogout}>Cerrar sesión</button>
-        </div>
-      </header>
-
-      {error ? <div className="card warning-box">{error}</div> : null}
+{error ? <div className="card warning-box">{error}</div> : null}
 
       {loading ? (
         <div className="card">Cargando roles...</div>

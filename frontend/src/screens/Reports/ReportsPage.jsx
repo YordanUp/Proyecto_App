@@ -1,9 +1,8 @@
 import { API_URL, apiFetch } from '../../services/api';
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 
 
-export default function ReportsPage({ session, onLogout }) {
+export default function ReportsPage({ session }) {
   const [reports, setReports] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
@@ -63,19 +62,7 @@ export default function ReportsPage({ session, onLogout }) {
 
   return (
     <div className="app-shell dashboard-layout">
-      <header className="topbar card">
-        <div>
-          <span className="eyebrow">Reportes</span>
-          <h1>Reportes y auditoría</h1>
-        </div>
-
-        <div className="user-area">
-          <Link to="/" className="link-button">Dashboard</Link>
-          <button type="button" className="secondary" onClick={onLogout}>Cerrar sesión</button>
-        </div>
-      </header>
-
-      {error ? <div className="card warning-box">{error}</div> : null}
+{error ? <div className="card warning-box">{error}</div> : null}
 
       {loading ? (
         <div className="card">Cargando reportes y auditoría...</div>

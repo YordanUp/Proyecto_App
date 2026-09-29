@@ -1,9 +1,8 @@
 import { API_URL, apiFetch } from '../../services/api';
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 
 
-export default function UsersPage({ session, onLogout }) {
+export default function UsersPage({ session }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -41,20 +40,7 @@ export default function UsersPage({ session, onLogout }) {
 
   return (
     <div className="app-shell dashboard-layout">
-      <header className="topbar card">
-        <div>
-          <span className="eyebrow">Administración</span>
-          <h1>Usuarios y permisos</h1>
-        </div>
-
-        <div className="user-area">
-          <Link to="/" className="link-button">Dashboard</Link>
-          <Link to="/roles" className="link-button">Roles</Link>
-          <button type="button" className="secondary" onClick={onLogout}>Cerrar sesión</button>
-        </div>
-      </header>
-
-      {error ? <div className="card warning-box">{error}</div> : null}
+{error ? <div className="card warning-box">{error}</div> : null}
 
       {loading ? (
         <div className="card">Cargando usuarios...</div>

@@ -1,9 +1,8 @@
 import { API_URL, apiFetch } from '../../services/api';
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 
 
-export default function ProductsPage({ session, onLogout }) {
+export default function ProductsPage({ session }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -43,19 +42,7 @@ export default function ProductsPage({ session, onLogout }) {
 
   return (
     <div className="app-shell dashboard-layout">
-      <header className="topbar card">
-        <div>
-          <span className="eyebrow">Catalogo</span>
-          <h1>Productos</h1>
-        </div>
-
-        <div className="user-area">
-          <Link to="/" className="link-button">Dashboard</Link>
-          <button type="button" className="secondary" onClick={onLogout}>Cerrar sesión</button>
-        </div>
-      </header>
-
-      {error ? <div className="card warning-box">{error}</div> : null}
+{error ? <div className="card warning-box">{error}</div> : null}
 
       {loading ? (
         <div className="card">Cargando productos...</div>
