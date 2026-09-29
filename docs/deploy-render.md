@@ -1,6 +1,6 @@
 # Preparación de lanzamiento: Render + MongoDB Atlas
 
-**Estado al 29 de septiembre de 2026:** preparación local en `release/render-production`. No hay conector de Render/Atlas disponible en este entorno y no se realizó despliegue, conexión a Atlas ni prueba post-deploy. Las URLs abajo son los nombres propuestos por el Blueprint, no endpoints verificados.
+**Estado al 29 de septiembre de 2026:** configuración comprometida y publicada en `origin/release/render-production` (`030d9d9`). No hay conector de Render/Atlas disponible en este entorno y no se realizó despliegue, conexión a Atlas ni prueba post-deploy. Las URLs abajo son los nombres propuestos por el Blueprint, no endpoints verificados.
 
 ## Auditoría del repositorio
 
@@ -54,7 +54,7 @@ Las IPs de salida de Render dependen de región; no se inventan ni se agregan de
 
 ## Secuencia de puesta en marcha
 
-1. Publicar la rama `release/render-production` a GitHub cuando se revise el diff y se autorice el acceso al remoto.
+1. Rama `release/render-production` publicada en GitHub. No está fusionada con `main`.
 2. Preparar Atlas y su lista de acceso limitada antes de iniciar el backend.
 3. Crear los servicios usando el Blueprint de la rama release y comprobar que Render detecta `rootDir`, comandos, rewrites, secretos y health check. Inspeccionar el plan/costos antes de confirmar.
 4. Si Render no reconoce los nombres sugeridos, fijar los nombres/URLs asignados antes del deploy y sincronizar CORS + URL del frontend + CSP.
@@ -74,6 +74,7 @@ La configuración ejecuta los tests existentes antes de compilar/desplegar. La s
 Estado remoto no verificable desde este entorno:
 
 - Render services/URLs/deploy history: no accesibles.
+- Validación/sync del Blueprint desde Render: pendiente; no se dispone de Render CLI ni credenciales de la cuenta.
 - MongoDB Atlas cluster, usuario, Database, Network Access, backups/conexión: no accesibles.
 - Frontend, login, JWT, RBAC y CORS post-deploy: pendientes.
 
