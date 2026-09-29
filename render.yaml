@@ -1,0 +1,52 @@
+# Render Blueprint for the release/render-production branch.
+# No credentials are stored in this file. MongoDB URI is requested securely by Render.
+services:
+  - type: web
+    name: yordanup-erp-api
+    runtime: node
+    rootDir: backend
+    branch: release/render-production
+    buildCommand: npm ci && npm test
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeployTrigger: off
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 1h
+      - key: CORS_ORIGIN
+        value: https://yordanup-erp-web.onrender.com
+
+  - type: web
+    name: yordanup-erp-web
+    runtime: static
+    rootDir: frontend
+    branch: release/render-production
+    buildCommand: npm ci && npm test && npm run build
+    staticPublishPath: dist
+    autoDeployTrigger: off
+    envVars:
+      - key: VITE_API_URL
+        value: https://yordanup-erp-api.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Content-Security-Policy
+        value: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' https://yordanup-erp-api.onrender.com; upgrade-insecure-requests"

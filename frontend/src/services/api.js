@@ -1,4 +1,11 @@
-export const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/$/, '');
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
+
+if (import.meta.env.PROD && !configuredApiUrl) {
+  throw new Error('VITE_API_URL debe configurarse antes de compilar el frontend para producción.');
+}
+
+const developmentApiUrl = import.meta.env.DEV ? 'http://localhost:4000' : '';
+export const API_URL = (configuredApiUrl || developmentApiUrl).replace(/\/$/, '');
 
 export class ApiError extends Error {
   constructor(message, { status = 0, code = 'NETWORK_ERROR', details = null } = {}) {

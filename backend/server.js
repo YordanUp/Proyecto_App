@@ -6,7 +6,7 @@ const { connectDatabase, disconnectDatabase, mongoose } = require('./src/config/
 
 async function start() {
   await connectDatabase();
-  const server = app.listen(config.port, () => console.log(`ERP backend running on port ${config.port}`));
+  const server = app.listen(config.port, '0.0.0.0', () => console.log(`ERP backend running on port ${config.port}`));
 
   async function shutdown(signal) {
     console.log(`${signal}: cerrando servidor`);

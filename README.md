@@ -41,6 +41,12 @@ npm run dev
 
 La URL de API web se configura como `VITE_API_URL` en el entorno de Vite; por defecto es `http://localhost:4000`.
 
+## Preparación de despliegue Render
+
+La configuración objetivo se encuentra en [`render.yaml`](render.yaml) y el procedimiento, las URLs propuestas, variables y verificaciones están en [`docs/deploy-render.md`](docs/deploy-render.md). La rama de preparación es `release/render-production`; no se hace merge a `main` automáticamente.
+
+La configuración no significa que ya exista un despliegue: este repositorio no tiene acceso a una cuenta Render ni a MongoDB Atlas desde este entorno. Completa los valores secretos en Render, autoriza el repo/branch en el Dashboard y ejecuta el despliegue manualmente. El frontend requiere `VITE_API_URL` en el build de producción y la configuración falla deliberadamente si falta.
+
 ## Variables de entorno
 
 `.env.example` documenta `NODE_ENV`, `PORT`, `MONGODB_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN` y `CORS_ORIGIN`, además de las tres variables para crear la cuenta inicial. `JWT_SECRET` debe ser aleatorio y de al menos 32 caracteres. Nunca guardes `.env` o credenciales reales en Git.
