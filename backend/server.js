@@ -3,9 +3,11 @@ require('dotenv').config();
 const app = require('./src/app');
 const config = require('./src/config/config');
 const { connectDatabase, disconnectDatabase, mongoose } = require('./src/config/database');
+const { ensureInitialAdmin } = require('./src/services/bootstrapService');
 
 async function start() {
   await connectDatabase();
+  if (process.env.BOOTSTRAP_INITIAL_ADMIN === 'true') await ensureInitialAdmin();
   const server = app.listen(config.port, '0.0.0.0', () => console.log(`ERP backend running on port ${config.port}`));
 
   async function shutdown(signal) {
