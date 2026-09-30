@@ -15,6 +15,7 @@ const Role = require('../src/models/Role');
 const User = require('../src/models/User');
 const { PERMISSIONS } = require('../src/services/permissions');
 const { hashPassword } = require('../src/services/authService');
+const { ensureInitialAdmin } = require('../src/services/bootstrapService');
 
 test('MongoDB integration: auth, RBAC, uniqueness, catalogs and audit', {
   skip: testUri ? false : 'Define TEST_MONGODB_URI con una instancia desechable de MongoDB compatible con transacciones'
@@ -32,6 +33,18 @@ test('MongoDB integration: auth, RBAC, uniqueness, catalogs and audit', {
 
   const health = await request(app).get('/api/health');
   assert.equal(health.status, 200);
+
+  const bootstrapEnv = {
+    INITIAL_ADMIN_NAME: 'Admin Bootstrap',
+    INITIAL_ADMIN_EMAIL: 'bootstrap@test.invalid',
+    INITIAL_ADMIN_PASSWORD: 'clave-bootstrap-larga-2026'
+  };
+  assert.deepEqual(await ensureInitialAdmin(bootstrapEnv), { created: true });
+  assert.deepEqual(await ensureInitialAdmin({}), { created: false });
+  const bootstrapLogin = await request(app).post('/api/auth/login').send({ email: bootstrapEnv.INITIAL_ADMIN_EMAIL, password: bootstrapEnv.INITIAL_ADMIN_PASSWORD });
+  assert.equal(bootstrapLogin.status, 200);
+  assert.equal(bootstrapLogin.body.data.user.role, 'admin');
+  assert.equal(bootstrapLogin.body.data.user.permissions.includes('users.create'), true);
 
   const login = await request(app).post('/api/auth/login').send({ email: 'admin@test.invalid', password: 'clave-de-prueba-muy-larga' });
   assert.equal(login.status, 200);

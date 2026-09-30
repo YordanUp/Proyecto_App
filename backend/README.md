@@ -2,6 +2,14 @@
 
 Express API con MongoDB mediante Mongoose. La aplicación conecta MongoDB antes de abrir el puerto HTTP; si falta `MONGODB_URI`, falla al iniciar. Desde la raíz copia `backend/.env.example` a `backend/.env`, completa sus valores y crea un usuario administrador de instalación con `npm run seed:admin`.
 
+## Bootstrap de administrador en producción
+
+El servidor solo intenta el bootstrap cuando `BOOTSTRAP_INITIAL_ADMIN` vale exactamente `true`. En Render, configura temporalmente esa variable y `INITIAL_ADMIN_NAME`, `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD` en el servicio backend. La contraseña requiere al menos 12 caracteres y máximo 72 bytes UTF-8. El servidor conecta MongoDB primero y no abre el puerto si el bootstrap solicitado falla.
+
+El proceso es idempotente: si ya hay una cuenta asignada al rol `admin`, no cambia el usuario, la contraseña ni el rol, y no necesita volver a recibir las variables `INITIAL_ADMIN_*`. Si no existe cuenta, crea (si hace falta) el rol de sistema con `PERMISSIONS`, crea un usuario activo con contraseña bcrypt y registra los eventos de bootstrap en auditoría. Un rol existente no se reescribe; si es inseguro o carece de permisos requeridos, el arranque falla con una indicación de revisión manual.
+
+Después de comprobar que el inicio de sesión funciona, cambia `BOOTSTRAP_INITIAL_ADMIN` a `false` en Render y vuelve a desplegar. Luego puedes eliminar las variables `INITIAL_ADMIN_*`. No guardes sus valores en el repositorio, Blueprint ni registros. El comando manual `npm run seed:admin` comparte el mismo servicio idempotente.
+
 ## Comandos
 
 ```powershell
