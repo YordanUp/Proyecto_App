@@ -13,6 +13,7 @@ Siguen siendo prototipos en memoria: inventario y movimientos, ventas, compras, 
 - Backend: Node.js, Express y Mongoose (`backend/`).
 - Base de datos: MongoDB Atlas; no hay fallback automático a Mongo local.
 - Frontend: React, Vite y React Router (`frontend/`).
+- App Android interna: React Native + Expo (`mobile/`); consume la misma API y marca como demo los módulos que siguen en memoria.
 - Documentación del dominio y API: `docs/`.
 
 Backend: `routes → controllers → services → models → MongoDB`. Las escrituras del núcleo y su evento de auditoría usan transacciones MongoDB. Configura Atlas con un replica set (Atlas lo proporciona por defecto).
@@ -48,6 +49,8 @@ La URL de API web se configura como `VITE_API_URL` en el entorno de Vite; por de
 El backend falla al arrancar si falta `MONGODB_URI` o `JWT_SECRET`; no cambia silenciosamente a otra base. `GET /api/health` devuelve `503` si Mongo no está conectado.
 
 En producción, crea los índices con `cd backend; npm run db:indexes` después de revisar el cluster destino.
+
+La guía móvil está en [`mobile/README.md`](mobile/README.md). La aplicación Android aún requiere probarse con Expo Go en un teléfono; no está preparada ni publicada en Play Store.
 
 ## Pruebas
 
