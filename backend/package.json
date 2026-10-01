@@ -20,7 +20,8 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.8.2",
-    "morgan": "^1.10.0"
+    "morgan": "^1.10.0",
+    "resend": "^6.31.0"
   },
   "devDependencies": {
     "supertest": "^7.0.0"

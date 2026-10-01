@@ -71,7 +71,9 @@ async function ensureInitialAdmin(env = process.env) {
         email,
         passwordHash: await hashPassword(password),
         role: role._id,
-        status: 'active'
+        status: 'active',
+        emailVerified: true,
+        emailVerifiedAt: new Date()
       }], { session });
       await auditService.recordAudit({
         userId: user.id,

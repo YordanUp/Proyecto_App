@@ -39,6 +39,8 @@ router.get('/', (req, res) => {
         'GET /api/health',
         'GET /api',
         'POST /api/auth/login',
+        'POST /api/auth/verify-email',
+        'POST /api/auth/resend-verification',
         'GET /api/auth/me',
         'GET /api/auth/profile',
         'PATCH /api/auth/password',

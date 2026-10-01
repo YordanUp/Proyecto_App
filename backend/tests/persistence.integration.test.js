@@ -16,10 +16,18 @@ const User = require('../src/models/User');
 const { PERMISSIONS } = require('../src/services/permissions');
 const { hashPassword } = require('../src/services/authService');
 const { ensureInitialAdmin } = require('../src/services/bootstrapService');
+const emailService = require('../src/services/emailService');
 
 test('MongoDB integration: auth, RBAC, uniqueness, catalogs and audit', {
   skip: testUri ? false : 'Define TEST_MONGODB_URI con una instancia desechable de MongoDB compatible con transacciones'
 }, async t => {
+  const sentEmails = [];
+  let failEmailDelivery = false;
+  emailService.setTestClient({ emails: { send: async (payload, options) => {
+    if (failEmailDelivery) throw new Error('private provider failure detail');
+    sentEmails.push({ payload, options });
+    return { data: { id: `test-${sentEmails.length}` } };
+  } } });
   await connectDatabase();
   await Promise.all(mongoose.modelNames().map(name => mongoose.model(name).init()));
   t.after(async () => {
@@ -54,19 +62,72 @@ test('MongoDB integration: auth, RBAC, uniqueness, catalogs and audit', {
   const createdUser = await request(app).post('/api/users').set('Authorization', `Bearer ${admin}`).send({ name: 'Operador', email: 'operator@test.invalid', password: 'clave-operador-larga', role: managerRole.id });
   assert.equal(createdUser.status, 201);
   assert.equal(createdUser.body.data.permissions.includes('users.create'), false);
+  assert.equal(createdUser.body.data.emailVerification, 'sent');
+  assert.equal(createdUser.body.data.emailVerified, false);
+  const verificationEmail = sentEmails.at(-1);
+  const operatorToken = verificationEmail.payload.html.match(/verify-email\?token=([A-Za-z0-9_-]+)/)?.[1];
+  assert.ok(operatorToken);
+  const operatorStored = await User.findOne({ email: 'operator@test.invalid' }).select('+emailVerificationTokenHash +emailVerificationExpiresAt');
+  assert.ok(operatorStored.emailVerificationTokenHash);
+  assert.notEqual(operatorStored.emailVerificationTokenHash, operatorToken);
+  assert.equal(operatorStored.emailVerificationExpiresAt > new Date(), true);
 
   const duplicate = await request(app).post('/api/users').set('Authorization', `Bearer ${admin}`).send({ name: 'Duplicado', email: 'operator@test.invalid', password: 'clave-operador-larga', role: managerRole.id });
   assert.equal(duplicate.status, 409);
 
   const operatorLogin = await request(app).post('/api/auth/login').send({ email: 'operator@test.invalid', password: 'clave-operador-larga' });
-  const denied = await request(app).get('/api/users').set('Authorization', `Bearer ${operatorLogin.body.data.token}`);
-  assert.equal(denied.status, 403);
-  const forbiddenUserCreation = await request(app).post('/api/users').set('Authorization', `Bearer ${operatorLogin.body.data.token}`).send({ name: 'Escalado', email: 'escalated@test.invalid', password: 'clave-operador-larga', role: 'admin-test' });
+  assert.equal(operatorLogin.status, 403);
+  assert.equal(operatorLogin.body.error, 'EMAIL_NOT_VERIFIED');
+  const verified = await request(app).post('/api/auth/verify-email').send({ token: operatorToken });
+  assert.equal(verified.status, 200);
+  assert.equal(verified.body.data.emailVerified, true);
+  assert.equal(sentEmails.at(-1).payload.subject, 'Bienvenido al ERP');
+  const reusedToken = await request(app).post('/api/auth/verify-email').send({ token: operatorToken });
+  assert.equal(reusedToken.status, 400);
+  const invalidToken = await request(app).post('/api/auth/verify-email').send({ token: 'invalid-token' });
+  assert.equal(invalidToken.status, 400);
+  assert.equal((await request(app).post('/api/auth/resend-verification').send({ email: 'missing@test.invalid' })).status, 200);
+  const sendsAfterVerifiedResend = sentEmails.length;
+  await request(app).post('/api/auth/resend-verification').send({ email: 'operator@test.invalid' });
+  assert.equal(sentEmails.length, sendsAfterVerifiedResend);
+  assert.equal(sentEmails.filter(email => email.payload.subject === 'Bienvenido al ERP').length, 1);
+  assert.equal((await request(app).post('/api/auth/login').send({ email: 'operator@test.invalid', password: 'clave-operador-larga' })).status, 200);
+  // The pre-verification response did not issue a token; use the verified session for RBAC checks.
+  const verifiedOperatorLogin = await request(app).post('/api/auth/login').send({ email: 'operator@test.invalid', password: 'clave-operador-larga' });
+  assert.equal((await request(app).get('/api/users').set('Authorization', `Bearer ${verifiedOperatorLogin.body.data.token}`)).status, 403);
+  const forbiddenUserCreation = await request(app).post('/api/users').set('Authorization', `Bearer ${verifiedOperatorLogin.body.data.token}`).send({ name: 'Escalado', email: 'escalated@test.invalid', password: 'clave-operador-larga', role: 'admin-test' });
   assert.equal(forbiddenUserCreation.status, 403);
+
+  failEmailDelivery = true;
+  const mailFailureUser = await request(app).post('/api/users').set('Authorization', `Bearer ${admin}`).send({ name: 'Correo Pendiente', email: 'mail-failure@test.invalid', password: 'clave-correo-larga', role: managerRole.id });
+  assert.equal(mailFailureUser.status, 201);
+  assert.equal(mailFailureUser.body.data.emailVerification, 'pending');
+  const pendingUser = await User.findOne({ email: 'mail-failure@test.invalid' }).select('+emailVerificationTokenHash');
+  const originalPendingHash = pendingUser.emailVerificationTokenHash;
+  assert.ok(pendingUser);
+  failEmailDelivery = false;
+  const resend = await request(app).post('/api/auth/resend-verification').send({ email: 'mail-failure@test.invalid' });
+  assert.equal(resend.status, 200);
+  const refreshedPending = await User.findById(pendingUser.id).select('+emailVerificationTokenHash');
+  assert.notEqual(refreshedPending.emailVerificationTokenHash, originalPendingHash);
+  const resentToken = sentEmails.at(-1).payload.html.match(/verify-email\?token=([A-Za-z0-9_-]+)/)?.[1];
+  assert.ok(resentToken);
+  assert.equal((await request(app).post('/api/auth/verify-email').send({ token: resentToken })).status, 200);
+
+  const expiredUser = await request(app).post('/api/users').set('Authorization', `Bearer ${admin}`).send({ name: 'Enlace Expirado', email: 'expired@test.invalid', password: 'clave-expirada-larga', role: managerRole.id });
+  assert.equal(expiredUser.status, 201);
+  const expiredToken = sentEmails.at(-1).payload.html.match(/verify-email\?token=([A-Za-z0-9_-]+)/)?.[1];
+  await User.updateOne({ email: 'expired@test.invalid' }, { $set: { emailVerificationExpiresAt: new Date(Date.now() - 1000) } });
+  const expiredAttempt = await request(app).post('/api/auth/verify-email').send({ token: expiredToken });
+  assert.equal(expiredAttempt.status, 400);
+  assert.equal(expiredAttempt.body.error, 'VERIFICATION_TOKEN_EXPIRED');
+
+  const resendAttempts = await Promise.all(Array.from({ length: 3 }, () => request(app).post('/api/auth/resend-verification').send({ email: 'expired@test.invalid' })));
+  assert.equal(resendAttempts.at(-1).status, 429);
 
   const roleUpdate = await request(app).put(`/api/roles/${managerRole.id}`).set('Authorization', `Bearer ${admin}`).send({ permissions: ['dashboard.read', 'users.read'] });
   assert.equal(roleUpdate.status, 200);
-  const refreshedRoleAccess = await request(app).get('/api/users').set('Authorization', `Bearer ${operatorLogin.body.data.token}`);
+  const refreshedRoleAccess = await request(app).get('/api/users').set('Authorization', `Bearer ${verifiedOperatorLogin.body.data.token}`);
   assert.equal(refreshedRoleAccess.status, 200);
 
   const badRole = await request(app).post('/api/roles').set('Authorization', `Bearer ${admin}`).send({ name: 'invalid', permissions: ['system.superuser'] });
@@ -108,7 +169,8 @@ test('MongoDB integration: auth, RBAC, uniqueness, catalogs and audit', {
 
   const logs = await request(app).get('/api/reports/audit').set('Authorization', `Bearer ${admin}`);
   assert.equal(logs.status, 200);
-  assert.ok(logs.body.data.some(entry => entry.module === 'users' && entry.action === 'create'));
+  assert.ok(logs.body.data.some(entry => entry.module === 'users' && entry.action === 'user.created'));
+  assert.ok(logs.body.data.some(entry => entry.module === 'auth' && entry.action === 'email.verified'));
   const attemptedLogWrite = await request(app).post('/api/reports/audit').set('Authorization', `Bearer ${admin}`).send({ action: 'fake', module: 'users' });
   assert.equal(attemptedLogWrite.status, 404);
 });

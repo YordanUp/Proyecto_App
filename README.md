@@ -43,7 +43,7 @@ La URL de API web se configura como `VITE_API_URL` en el entorno de Vite; por de
 
 ## Variables de entorno
 
-`.env.example` documenta `NODE_ENV`, `PORT`, `MONGODB_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN` y `CORS_ORIGIN`, además de las tres variables para crear la cuenta inicial. `JWT_SECRET` debe ser aleatorio y de al menos 32 caracteres. Nunca guardes `.env` o credenciales reales en Git.
+`.env.example` documenta `NODE_ENV`, `PORT`, `MONGODB_URI`, `JWT_SECRET`, `JWT_EXPIRES_IN` y `CORS_ORIGIN`, las variables para crear la cuenta inicial y la configuración opcional de Resend. `JWT_SECRET` debe ser aleatorio y de al menos 32 caracteres. Nunca guardes `.env` o credenciales reales en Git.
 
 El backend falla al arrancar si falta `MONGODB_URI` o `JWT_SECRET`; no cambia silenciosamente a otra base. `GET /api/health` devuelve `503` si Mongo no está conectado.
 
@@ -67,6 +67,7 @@ La suite backend incluye pruebas de esquema/hash y una suite de integración que
 - `GET /api/auth/me` y `/api/auth/profile` devuelven perfil y permisos actuales.
 - `PATCH /api/auth/password` solicita contraseña actual y una nueva de 12–72 bytes.
 - `POST /api/auth/logout` es stateless: el cliente elimina el JWT; su vencimiento limita la sesión.
+- `POST /api/auth/verify-email` confirma cuentas nuevas; `POST /api/auth/resend-verification` reenvía de forma genérica y limitada. Consulta `backend/README.md` para la configuración de Resend y compatibilidad de usuarios existentes.
 - Las rutas protegidas consultan el usuario/rol en Mongo. Las respuestas siguen `{ success, message, data }` o `{ success, message, error }`.
 - El catálogo ofrece búsqueda, filtros, orden, paginación (25 por omisión, hasta 100) y eliminación lógica.
 

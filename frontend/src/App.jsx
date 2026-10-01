@@ -21,6 +21,7 @@ import {
   SettingsPage,
   UsersPage
 } from './screens';
+import VerifyEmailPage from './screens/Login/VerifyEmailPage';
 
 const STORAGE_KEY = 'erp_token';
 const STORAGE_USER = 'erp_user';
@@ -65,7 +66,7 @@ export default function App() {
       setSession({ token, user });
       return { success: true, message: payload.message };
     } catch (error) {
-      return { success: false, message: error.message || 'No se pudo conectar con el backend.' };
+      return { success: false, code: error.code, message: error.message || 'No se pudo conectar con el backend.' };
     }
   }
 
@@ -110,6 +111,7 @@ export default function App() {
         path="/login"
         element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage onLogin={handleLogin} />}
       />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );

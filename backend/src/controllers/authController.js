@@ -3,6 +3,7 @@ const { verifyPassword, hashPassword, signToken } = require('../services/authSer
 const { recordAudit } = require('../services/auditService');
 const mongoose = require('mongoose');
 const { successResponse, errorResponse } = require('../utils/response');
+const emailVerificationService = require('../services/emailVerificationService');
 
 const safeUser = (user, permissions) => ({
   id: user.id,
@@ -11,6 +12,7 @@ const safeUser = (user, permissions) => ({
   role: user.role?.name,
   permissions,
   status: user.status,
+  emailVerified: user.emailVerified !== false,
   lastAccess: user.lastAccessAt
 });
 
@@ -24,11 +26,26 @@ async function login(req, res, next) {
     if (!user || user.status !== 'active' || !(await verifyPassword(password, user.passwordHash))) {
       return errorResponse(res, 401, 'Credenciales inválidas', 'INVALID_CREDENTIALS');
     }
+    if (!user.emailVerified) return errorResponse(res, 403, 'Debes confirmar tu correo antes de iniciar sesión.', 'EMAIL_NOT_VERIFIED');
     user.lastAccessAt = new Date();
     await user.save();
     const permissions = user.role.permissions;
     const token = signToken({ sub: user.id });
     return successResponse(res, 200, 'Login exitoso', { token, user: safeUser(user, permissions) });
+  } catch (error) { return next(error); }
+}
+
+async function verifyEmail(req, res, next) {
+  try {
+    const data = await emailVerificationService.verifyEmail(req.body?.token);
+    return successResponse(res, 200, 'Correo verificado correctamente', data);
+  } catch (error) { return next(error); }
+}
+
+async function resendVerification(req, res, next) {
+  try {
+    await emailVerificationService.resendVerification(req.body?.email);
+    return successResponse(res, 200, 'Si la cuenta existe y requiere verificación, se enviará un correo.', {});
   } catch (error) { return next(error); }
 }
 
@@ -65,4 +82,4 @@ function logout(req, res) {
   return successResponse(res, 200, 'Sesión cerrada correctamente; elimina el token en el cliente', {});
 }
 
-module.exports = { login, profile, changePassword, logout };
+module.exports = { login, profile, changePassword, logout, verifyEmail, resendVerification };

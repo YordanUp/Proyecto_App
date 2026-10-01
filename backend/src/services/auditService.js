@@ -3,7 +3,7 @@ const AuditLog = require('../models/AuditLog');
 function snapshot(value) {
   if (!value) return null;
   const plain = typeof value.toObject === 'function' ? value.toObject() : value;
-  delete plain.passwordHash;
+  for (const field of ['passwordHash', 'emailVerificationTokenHash', 'emailVerificationExpiresAt']) delete plain[field];
   return plain;
 }
 

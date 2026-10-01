@@ -13,7 +13,11 @@ const config = {
   jwtSecret: required('JWT_SECRET', nodeEnv === 'test' ? 'test-only-secret-not-for-production' : undefined),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1h',
   mongoUri: process.env.MONGODB_URI || null,
-  corsOrigin: process.env.CORS_ORIGIN || (nodeEnv === 'production' ? undefined : 'http://localhost:5173')
+  corsOrigin: process.env.CORS_ORIGIN || (nodeEnv === 'production' ? undefined : 'http://localhost:5173'),
+  resendApiKey: process.env.RESEND_API_KEY || '',
+  resendFromEmail: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+  appPublicUrl: process.env.APP_PUBLIC_URL || '',
+  emailEnabled: process.env.EMAIL_ENABLED === 'true'
 };
 
 if (!config.mongoUri && nodeEnv !== 'test') {
@@ -27,6 +31,16 @@ if (!Number.isInteger(config.port) || config.port < 1 || config.port > 65535) th
 if (!config.corsOrigin) throw new Error('Falta CORS_ORIGIN en producción');
 if (nodeEnv === 'production' && config.corsOrigin.split(',').some(origin => origin.trim() === '*')) {
   throw new Error('CORS_ORIGIN no puede usar comodín en producción');
+}
+if (config.emailEnabled && (!config.resendApiKey || !config.appPublicUrl)) {
+  throw new Error('EMAIL_ENABLED requiere RESEND_API_KEY y APP_PUBLIC_URL');
+}
+if (config.emailEnabled) {
+  let publicUrl;
+  try { publicUrl = new URL(config.appPublicUrl); } catch { throw new Error('APP_PUBLIC_URL debe ser una URL HTTP/HTTPS válida'); }
+  if (!['http:', 'https:'].includes(publicUrl.protocol) || (nodeEnv === 'production' && publicUrl.protocol !== 'https:')) {
+    throw new Error('APP_PUBLIC_URL debe usar HTTPS en producción');
+  }
 }
 
 module.exports = config;

@@ -3,10 +3,11 @@ const Role = require('../models/Role');
 const mongoose = require('mongoose');
 const { hashPassword } = require('./authService');
 const { recordAudit } = require('./auditService');
+const { createVerificationToken, TOKEN_TTL_MS, sendVerificationForUser, issueVerification } = require('./emailVerificationService');
 
 function serialize(user) {
   return { id: user.id, name: user.name, email: user.email, role: user.role?.name || user.role, status: user.status,
-    permissions: user.role?.permissions || [], lastAccess: user.lastAccessAt, createdAt: user.createdAt, updatedAt: user.updatedAt };
+    emailVerified: user.emailVerified !== false, permissions: user.role?.permissions || [], lastAccess: user.lastAccessAt, createdAt: user.createdAt, updatedAt: user.updatedAt };
 }
 async function listUsers(query = {}) {
   const requestedPage = Number(query.page);
@@ -41,16 +42,18 @@ async function createUser(data, actorId) {
     : await Role.findOne({ name: String(data.role).toLowerCase() });
   if (!role) { const error = new Error('El rol indicado no existe'); error.statusCode = 400; error.errorCode = 'INVALID_ROLE'; throw error; }
   const passwordHash = await hashPassword(data.password);
+  const { token, tokenHash } = createVerificationToken();
   const session = await mongoose.startSession();
   let populated;
   try {
     await session.withTransaction(async () => {
-      const [user] = await User.create([{ name: data.name, email: data.email, passwordHash, role: role._id, status: data.status || 'active' }], { session });
+      const [user] = await User.create([{ name: data.name, email: data.email, passwordHash, role: role._id, status: data.status || 'active', emailVerified: false, emailVerificationTokenHash: tokenHash, emailVerificationExpiresAt: new Date(Date.now() + TOKEN_TTL_MS) }], { session });
       populated = await user.populate({ path: 'role', options: { session } });
-      await recordAudit({ userId: actorId, action: 'create', module: 'users', recordId: user.id, after: populated, session });
+      await recordAudit({ userId: actorId, action: 'user.created', module: 'users', recordId: user.id, after: populated, session });
     });
   } finally { await session.endSession(); }
-  return serialize(populated);
+  const emailResult = await sendVerificationForUser(populated, token, tokenHash, actorId);
+  return { ...serialize(populated), emailVerification: emailResult.sent ? 'sent' : 'pending' };
 }
 async function updateUser(id, data, actorId) {
   if (data.role !== undefined) { const error = new Error('Use la operación de asignación de rol'); error.statusCode = 400; error.errorCode = 'ROLE_ASSIGNMENT_REQUIRED'; throw error; }
@@ -58,7 +61,9 @@ async function updateUser(id, data, actorId) {
   const user = await User.findById(id).populate('role');
   if (!user) return null;
   const before = user.toObject();
+  const emailChanged = data.email !== undefined && String(data.email).trim().toLowerCase() !== user.email;
   for (const key of ['name', 'email', 'status']) if (data[key] !== undefined) user[key] = data[key];
+  if (emailChanged) { user.emailVerified = false; user.emailVerifiedAt = null; user.emailVerificationTokenHash = null; user.emailVerificationExpiresAt = null; }
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
@@ -66,6 +71,10 @@ async function updateUser(id, data, actorId) {
       await recordAudit({ userId: actorId, action: 'update', module: 'users', recordId: id, before, after: user, session });
     });
   } finally { await session.endSession(); }
+  if (emailChanged) {
+    const delivery = await issueVerification(user.id, actorId);
+    return { ...serialize(user), emailVerification: delivery.sent ? 'sent' : 'pending' };
+  }
   return serialize(user);
 }
 async function setUserStatus(id, status, actorId) {

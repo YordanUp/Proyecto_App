@@ -14,6 +14,9 @@ test('User requiere nombre, correo, hash y rol; nunca serializa el hash', () => 
   assert.ok(error.errors.name);
   assert.ok(error.errors.role);
   assert.equal(user.toJSON().passwordHash, undefined);
+  assert.equal(user.emailVerified, true, 'los documentos legacy sin el campo siguen verificados');
+  user.emailVerificationTokenHash = 'sensitive-hash';
+  assert.equal(user.toJSON().emailVerificationTokenHash, undefined);
 });
 
 test('Role rechaza permisos duplicados', () => {

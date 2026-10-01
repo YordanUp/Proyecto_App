@@ -11,6 +11,9 @@ const routes = require('./routes');
 
 const app = express();
 
+// Render runs the service behind one trusted proxy; this lets per-IP limits use the client IP.
+if (config.nodeEnv === 'production') app.set('trust proxy', 1);
+
 app.use(helmet());
 const allowedOrigins = config.corsOrigin.split(',').map(origin => origin.trim()).filter(Boolean);
 app.use(cors({
