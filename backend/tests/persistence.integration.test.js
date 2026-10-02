@@ -21,6 +21,7 @@ const emailService = require('../src/services/emailService');
 const AuditLog = require('../src/models/AuditLog');
 const InventoryStock = require('../src/models/InventoryStock');
 const InventoryMovement = require('../src/models/InventoryMovement');
+const Sale = require('../src/models/Sale');
 
 test('MongoDB integration: auth, RBAC, uniqueness, catalogs and audit', {
   skip: testUri ? false : 'Define TEST_MONGODB_URI con una instancia desechable de MongoDB compatible con transacciones'
@@ -248,6 +249,131 @@ test('MongoDB integration: auth, RBAC, uniqueness, catalogs and audit', {
   const inventoryAudits = await request(app).get('/api/reports/audit?module=inventory&limit=100').set('Authorization', `Bearer ${admin}`);
   assert.deepEqual(new Set(inventoryAudits.body.data.map(item => item.action)), new Set(['inventory.entry', 'inventory.exit', 'inventory.adjustment', 'inventory.transfer']));
 
+  const salesRoute = '/api/sales';
+  const salesWarehouseId = secondWarehouseId;
+  const stockBeforeDraft = await InventoryStock.findOne({ productId, warehouseId: salesWarehouseId });
+  const createSalePayload = { customerId: client.body.data.id, status: 'confirmed', items: [{ productId, warehouseId: salesWarehouseId, quantity: 2, taxRate: 16 }] };
+  const createdSale = await request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send(createSalePayload);
+  assert.equal(createdSale.status, 201, 'VEN-001: crea una venta en borrador');
+  const saleId = createdSale.body.data.id;
+  assert.match(createdSale.body.data.folio, /^VEN-\d{4}-\d{6}$/);
+  assert.equal(createdSale.body.data.status, 'draft');
+  assert.equal(createdSale.body.data.items[0].productNameSnapshot, 'Martillo');
+  assert.equal(createdSale.body.data.subtotal, 30);
+  assert.equal(createdSale.body.data.taxes, 4.8);
+  assert.equal(createdSale.body.data.total, 34.8);
+  assert.equal((await InventoryStock.findOne({ productId, warehouseId: salesWarehouseId })).quantity, stockBeforeDraft.quantity, 'VEN-001: crear draft no modifica inventario');
+
+  const salesList = await request(app).get(`${salesRoute}?status=draft&search=${encodeURIComponent(createdSale.body.data.folio)}&page=1&limit=10`).set('Authorization', `Bearer ${admin}`);
+  assert.equal(salesList.status, 200, 'VEN-002: listado persistente con búsqueda y filtros');
+  assert.equal(salesList.body.data[0].id, saleId);
+  const saleDetail = await request(app).get(`${salesRoute}/${saleId}`).set('Authorization', `Bearer ${admin}`);
+  assert.equal(saleDetail.status, 200);
+  assert.equal(saleDetail.body.data.customer.name, 'Cliente Uno');
+
+  const confirmedSale = await request(app).post(`${salesRoute}/${saleId}/confirm`).set('Authorization', `Bearer ${admin}`).send();
+  assert.equal(confirmedSale.status, 200, 'VEN-003: confirma venta');
+  assert.equal(confirmedSale.body.data.status, 'confirmed');
+  assert.ok(confirmedSale.body.data.confirmedAt);
+  assert.equal((await InventoryStock.findOne({ productId, warehouseId: salesWarehouseId })).quantity, 1, 'VEN-004: la confirmación descuenta stock');
+  const saleMovement = await InventoryMovement.findOne({ referenceType: 'sale', referenceId: saleId, type: 'SALE' });
+  assert.ok(saleMovement, 'VEN-005: crea movimiento SALE');
+  assert.equal(saleMovement.quantity, 2);
+  assert.equal(saleMovement.previousQuantity, 3);
+  assert.equal(saleMovement.newQuantity, 1);
+  assert.equal(String(saleMovement.userId), login.body.data.user.id);
+
+  const lowStockDraft = await request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send({ ...createSalePayload, items: [{ ...createSalePayload.items[0], quantity: 2 }] });
+  assert.equal(lowStockDraft.status, 201);
+  const movementCountBeforeLowStock = await InventoryMovement.countDocuments();
+  const lowStockConfirm = await request(app).post(`${salesRoute}/${lowStockDraft.body.data.id}/confirm`).set('Authorization', `Bearer ${admin}`).send();
+  assert.equal(lowStockConfirm.status, 409, 'VEN-006: rechaza confirmación con stock insuficiente');
+  assert.equal(lowStockConfirm.body.error, 'INSUFFICIENT_STOCK');
+  assert.equal((await Sale.findById(lowStockDraft.body.data.id)).status, 'draft');
+  assert.equal(await InventoryMovement.countDocuments(), movementCountBeforeLowStock);
+
+  const reversal = await request(app).post(`${salesRoute}/${saleId}/cancel`).set('Authorization', `Bearer ${admin}`).send();
+  assert.equal(reversal.status, 200, 'VEN-009: cancelar venta confirmada');
+  assert.equal(reversal.body.data.status, 'cancelled');
+  assert.ok(reversal.body.data.cancelledAt);
+  assert.equal((await InventoryStock.findOne({ productId, warehouseId: salesWarehouseId })).quantity, 3);
+  assert.ok(await InventoryMovement.findOne({ referenceType: 'sale', referenceId: saleId, type: 'RETURN' }));
+  assert.equal((await request(app).post(`${salesRoute}/${saleId}/cancel`).set('Authorization', `Bearer ${admin}`).send()).status, 409, 'VEN-010: no permite cancelar dos veces');
+  assert.equal((await request(app).post(`${salesRoute}/${saleId}/confirm`).set('Authorization', `Bearer ${admin}`).send()).status, 409, 'VEN-011: no permite reactivar una venta cancelada');
+
+  const cancelledDraft = await request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send(createSalePayload);
+  assert.equal(cancelledDraft.status, 201);
+  const stockBeforeDraftCancel = (await InventoryStock.findOne({ productId, warehouseId: salesWarehouseId })).quantity;
+  const draftCancel = await request(app).post(`${salesRoute}/${cancelledDraft.body.data.id}/cancel`).set('Authorization', `Bearer ${admin}`).send();
+  assert.equal(draftCancel.status, 200, 'VEN-008: cancela borrador sin inventario');
+  assert.equal((await InventoryStock.findOne({ productId, warehouseId: salesWarehouseId })).quantity, stockBeforeDraftCancel);
+  assert.equal((await request(app).post(`${salesRoute}/${cancelledDraft.body.data.id}/cancel`).set('Authorization', `Bearer ${admin}`).send()).status, 409);
+
+  assert.equal((await request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send({ customerId: client.body.data.id, items: [] })).status, 400);
+  assert.equal((await request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send({ customerId: 'bad-id', items: createSalePayload.items })).status, 400);
+  assert.equal((await request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send({ customerId: new mongoose.Types.ObjectId().toString(), items: createSalePayload.items })).status, 404);
+  assert.equal((await request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send({ ...createSalePayload, items: [{ ...createSalePayload.items[0], quantity: 0 }] })).status, 400);
+  assert.equal((await request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send({ ...createSalePayload, items: [{ ...createSalePayload.items[0], unitPrice: 1 }] })).status, 400);
+  assert.equal((await request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send({ ...createSalePayload, items: [{ ...createSalePayload.items[0], productId: new mongoose.Types.ObjectId().toString() }] })).status, 404);
+
+  const secondDraft = await request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send(createSalePayload);
+  assert.equal(secondDraft.status, 201);
+  assert.notEqual(secondDraft.body.data.folio, createdSale.body.data.folio, 'VEN-013: folios son únicos');
+  const stockBeforeDraftUpdate = (await InventoryStock.findOne({ productId, warehouseId: salesWarehouseId })).quantity;
+  const updatedDraft = await request(app).put(`${salesRoute}/${secondDraft.body.data.id}`).set('Authorization', `Bearer ${admin}`).send({ items: [{ ...createSalePayload.items[0], quantity: 1 }] });
+  assert.equal(updatedDraft.status, 200);
+  assert.equal(updatedDraft.body.data.total, 17.4);
+  assert.equal((await InventoryStock.findOne({ productId, warehouseId: salesWarehouseId })).quantity, stockBeforeDraftUpdate);
+  const [concurrentFolioA, concurrentFolioB] = await Promise.all([
+    request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send(createSalePayload),
+    request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send(createSalePayload)
+  ]);
+  assert.deepEqual([concurrentFolioA.status, concurrentFolioB.status], [201, 201]);
+  assert.notEqual(concurrentFolioA.body.data.folio, concurrentFolioB.body.data.folio, 'VEN-013: la secuencia mantiene unicidad concurrente');
+  await request(app).put(`/api/products/${productId}`).set('Authorization', `Bearer ${admin}`).send({ name: 'Martillo actualizado' });
+  const persistedSnapshot = await request(app).get(`${salesRoute}/${secondDraft.body.data.id}`).set('Authorization', `Bearer ${admin}`);
+  assert.equal(persistedSnapshot.body.data.items[0].productNameSnapshot, 'Martillo', 'VEN-014: conserva snapshot histórico del producto');
+
+  assert.equal((await request(app).get(salesRoute).set('Authorization', `Bearer ${verifiedOperatorLogin.body.data.token}`)).status, 403, 'VEN-012: lectura requiere permiso');
+  assert.equal((await request(app).post(salesRoute).set('Authorization', `Bearer ${verifiedOperatorLogin.body.data.token}`).send(createSalePayload)).status, 403, 'VEN-012: creación requiere permiso');
+  assert.equal((await request(app).post(`${salesRoute}/${secondDraft.body.data.id}/confirm`).set('Authorization', `Bearer ${verifiedOperatorLogin.body.data.token}`).send()).status, 403);
+  assert.equal((await Sale.findById(secondDraft.body.data.id)).status, 'draft');
+
+  await request(app).post(`${inventoryRoute}/adjust`).set('Authorization', `Bearer ${admin}`).send({ productId, warehouseId: salesWarehouseId, newQuantity: 5, reason: 'Preparar prueba de concurrencia de ventas' });
+  const concurrentSaleA = await request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send({ ...createSalePayload, items: [{ ...createSalePayload.items[0], quantity: 4 }] });
+  const concurrentSaleB = await request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send({ ...createSalePayload, items: [{ ...createSalePayload.items[0], quantity: 4 }] });
+  const concurrentSaleResults = await Promise.all([
+    request(app).post(`${salesRoute}/${concurrentSaleA.body.data.id}/confirm`).set('Authorization', `Bearer ${admin}`).send(),
+    request(app).post(`${salesRoute}/${concurrentSaleB.body.data.id}/confirm`).set('Authorization', `Bearer ${admin}`).send()
+  ]);
+  assert.deepEqual(concurrentSaleResults.map(result => result.status).sort((a, b) => a - b), [200, 409], 'VEN-015: solo una venta concurrente puede consumir el stock');
+  assert.equal((await InventoryStock.findOne({ productId, warehouseId: salesWarehouseId })).quantity, 1);
+  const concurrentStatuses = await Promise.all([concurrentSaleA.body.data.id, concurrentSaleB.body.data.id].map(async id => (await Sale.findById(id)).status));
+  assert.deepEqual(concurrentStatuses.sort(), ['confirmed', 'draft']);
+
+  await request(app).post(`${inventoryRoute}/adjust`).set('Authorization', `Bearer ${admin}`).send({ productId, warehouseId: salesWarehouseId, newQuantity: 5, reason: 'Preparar prueba de rollback de venta' });
+  const rollbackSale = await request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send({ ...createSalePayload, items: [createSalePayload.items[0], createSalePayload.items[0]] });
+  const movementCountBeforeSaleRollback = await InventoryMovement.countDocuments();
+  const auditCountBeforeSaleRollback = await AuditLog.countDocuments({ module: { $in: ['sales', 'inventory'] } });
+  const originalSaleMovementCreate = InventoryMovement.create;
+  let saleMovementCreateCalls = 0;
+  InventoryMovement.create = async function failSecondSaleMovement(...args) {
+    saleMovementCreateCalls += 1;
+    if (saleMovementCreateCalls === 2) throw new Error('VEN-007 simulated movement failure');
+    return originalSaleMovementCreate.apply(this, args);
+  };
+  let saleRollbackResponse;
+  try {
+    saleRollbackResponse = await request(app).post(`${salesRoute}/${rollbackSale.body.data.id}/confirm`).set('Authorization', `Bearer ${admin}`).send();
+  } finally {
+    InventoryMovement.create = originalSaleMovementCreate;
+  }
+  assert.equal(saleRollbackResponse.status, 500, 'VEN-007: falla después de modificar inventario y revierte');
+  assert.equal((await InventoryStock.findOne({ productId, warehouseId: salesWarehouseId })).quantity, 5);
+  assert.equal((await Sale.findById(rollbackSale.body.data.id)).status, 'draft');
+  assert.equal(await InventoryMovement.countDocuments(), movementCountBeforeSaleRollback);
+  assert.equal(await AuditLog.countDocuments({ module: { $in: ['sales', 'inventory'] } }), auditCountBeforeSaleRollback);
+
   const deactivateProduct = await request(app).delete(`/api/products/${product.body.data.id}`).set('Authorization', `Bearer ${admin}`);
   assert.equal(deactivateProduct.status, 200);
   assert.equal(deactivateProduct.body.data.status, 'inactive');
@@ -262,9 +388,17 @@ test('MongoDB integration: auth, RBAC, uniqueness, catalogs and audit', {
   assert.equal(newPasswordLogin.status, 200);
 
   const logs = await request(app).get('/api/reports/audit').set('Authorization', `Bearer ${admin}`);
+  const recentLogs = await request(app).get('/api/reports/audit?limit=100').set('Authorization', `Bearer ${admin}`);
+  const salesLogs = await request(app).get('/api/reports/audit?module=sales&limit=100').set('Authorization', `Bearer ${admin}`);
+  const inventoryLogsAfterSales = await request(app).get('/api/reports/audit?module=inventory&limit=100').set('Authorization', `Bearer ${admin}`);
   assert.equal(logs.status, 200);
-  assert.ok(logs.body.data.some(entry => entry.module === 'users' && entry.action === 'user.created'));
-  assert.ok(logs.body.data.some(entry => entry.module === 'auth' && entry.action === 'email.verified'));
+  assert.ok(recentLogs.body.data.some(entry => entry.module === 'users' && entry.action === 'user.created'));
+  assert.ok(recentLogs.body.data.some(entry => entry.module === 'auth' && entry.action === 'email.verified'));
+  assert.ok(salesLogs.body.data.some(entry => entry.action === 'sale.created'));
+  assert.ok(salesLogs.body.data.some(entry => entry.action === 'sale.confirmed'));
+  assert.ok(salesLogs.body.data.some(entry => entry.action === 'sale.cancelled'));
+  assert.ok(inventoryLogsAfterSales.body.data.some(entry => entry.action === 'inventory.sale'));
+  assert.ok(inventoryLogsAfterSales.body.data.some(entry => entry.action === 'inventory.sale.reversal'));
   const attemptedLogWrite = await request(app).post('/api/reports/audit').set('Authorization', `Bearer ${admin}`).send({ action: 'fake', module: 'users' });
   assert.equal(attemptedLogWrite.status, 404);
 });

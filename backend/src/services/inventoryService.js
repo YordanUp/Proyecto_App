@@ -248,6 +248,58 @@ async function transferStock(data, actorId) {
   });
 }
 
+function assertTransactionSession(session) {
+  if (!session || !session.inTransaction()) throw new Error('La integración de ventas requiere una transacción MongoDB activa');
+}
+
+async function consumeForSale({ productId: rawProductId, warehouseId: rawWarehouseId, quantity: rawQuantity, saleId, folio, userId: rawUserId, session }) {
+  assertTransactionSession(session);
+  const productId = idValue(rawProductId, 'productId');
+  const warehouseId = idValue(rawWarehouseId, 'warehouseId');
+  const userId = idValue(rawUserId, 'usuario');
+  const quantity = positiveQuantity(rawQuantity);
+  const product = await Product.findOne({ _id: productId, status: 'active' }).select('_id').session(session);
+  const warehouse = await Warehouse.findOne({ _id: warehouseId, status: 'active' }).select('_id').session(session);
+  if (!product) throw inventoryError(404, 'PRODUCT_NOT_FOUND', 'El producto no existe o está inactivo');
+  if (!warehouse) throw inventoryError(404, 'WAREHOUSE_NOT_FOUND', 'El almacén no existe o está inactivo');
+  const before = await InventoryStock.findOne({ productId, warehouseId }).session(session);
+  const after = await InventoryStock.findOneAndUpdate({
+    productId, warehouseId,
+    $expr: { $gte: [{ $subtract: ['$quantity', '$reservedQuantity'] }, quantity] }
+  }, { $inc: { quantity: -quantity } }, { new: true, runValidators: true, session });
+  if (!before || !after) throw inventoryError(409, 'INSUFFICIENT_STOCK', `Stock insuficiente para ${folio}`);
+  const movement = await createMovement({
+    productId, warehouseId, type: 'SALE', quantity, previousQuantity: before.quantity, newQuantity: after.quantity,
+    reason: `Venta confirmada ${folio}`, referenceType: 'sale', referenceId: String(saleId), userId, session
+  });
+  await auditMovement({ userId, action: 'inventory.sale', movement, stockBefore: before, stockAfter: after, session });
+  return { movement, stock: after };
+}
+
+async function restoreForSale({ productId: rawProductId, warehouseId: rawWarehouseId, quantity: rawQuantity, saleId, folio, userId: rawUserId, session }) {
+  assertTransactionSession(session);
+  const productId = idValue(rawProductId, 'productId');
+  const warehouseId = idValue(rawWarehouseId, 'warehouseId');
+  const userId = idValue(rawUserId, 'usuario');
+  const quantity = positiveQuantity(rawQuantity);
+  let before = await InventoryStock.findOne({ productId, warehouseId }).session(session);
+  if (!before) {
+    const product = await Product.findById(productId).select('minStock').session(session);
+    await InventoryStock.updateOne({ productId, warehouseId }, {
+      $setOnInsert: { productId, warehouseId, quantity: 0, reservedQuantity: 0, minimumStock: product?.minStock || 0 }
+    }, { upsert: true, session, runValidators: true });
+    before = await InventoryStock.findOne({ productId, warehouseId }).session(session);
+  }
+  const after = await InventoryStock.findOneAndUpdate({ _id: before._id }, { $inc: { quantity } }, { new: true, runValidators: true, session });
+  if (!after) throw inventoryError(409, 'INVENTORY_CONFLICT', 'No fue posible revertir las existencias de la venta');
+  const movement = await createMovement({
+    productId, warehouseId, type: 'RETURN', quantity, previousQuantity: before.quantity, newQuantity: after.quantity,
+    reason: `Reversión por cancelación ${folio}`, referenceType: 'sale', referenceId: String(saleId), userId, session
+  });
+  await auditMovement({ userId, action: 'inventory.sale.reversal', movement, stockBefore: before, stockAfter: after, session });
+  return { movement, stock: after };
+}
+
 function dateFilter(query) {
   const filter = {};
   if (query.from || query.to) {
@@ -317,4 +369,4 @@ async function listMovements(query = {}) {
   return { items: movements.map(serializeMovement), pagination: { page, limit, total, pages: Math.ceil(total / limit) } };
 }
 
-module.exports = { listInventory, listWarehouses, listMovements, addEntry, addExit, adjustStock, transferStock, inventoryError };
+module.exports = { listInventory, listWarehouses, listMovements, addEntry, addExit, adjustStock, transferStock, consumeForSale, restoreForSale, inventoryError };

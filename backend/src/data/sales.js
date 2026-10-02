@@ -11,19 +11,6 @@ const quotationSeed = [
   }
 ];
 
-const saleSeed = [
-  {
-    id: 's1',
-    customerId: 'cl1',
-    status: 'confirmed',
-    total: 260,
-    items: [
-      { productId: 'p1', quantity: 1, unitPrice: 260 }
-    ],
-    createdAt: new Date().toISOString()
-  }
-];
-
 const returnSaleSeed = [
   {
     id: 'rs1',
@@ -36,6 +23,5 @@ const returnSaleSeed = [
 
 module.exports = {
   quotationSeed,
-  saleSeed,
   returnSaleSeed
 };

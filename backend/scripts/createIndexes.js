@@ -7,6 +7,8 @@ require('../src/models/AuditLog');
 require('../src/models/catalog');
 require('../src/models/InventoryStock');
 require('../src/models/InventoryMovement');
+require('../src/models/Sale');
+require('../src/models/Sequence');
 
 async function main() {
   await connectDatabase();
