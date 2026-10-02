@@ -218,15 +218,13 @@ async function transferStock(data, actorId) {
   const referenceInfo = reference({ ...data, referenceType: data.referenceType || 'manual' });
   const transferId = new mongoose.Types.ObjectId().toString();
   return withInventoryTransaction(async session => {
-    const [sourceRefs, destinationRefs] = await Promise.all([
-      activeReferences(productId, fromWarehouseId, session), activeReferences(productId, toWarehouseId, session)
-    ]);
+    const sourceRefs = await activeReferences(productId, fromWarehouseId, session);
+    const destinationRefs = await activeReferences(productId, toWarehouseId, session);
     const product = sourceRefs.product;
-    await Promise.all([ensureStock(product, sourceRefs.warehouse, session), ensureStock(product, destinationRefs.warehouse, session)]);
-    const [sourceBefore, destinationBefore] = await Promise.all([
-      InventoryStock.findOne({ productId, warehouseId: fromWarehouseId }).session(session),
-      InventoryStock.findOne({ productId, warehouseId: toWarehouseId }).session(session)
-    ]);
+    await ensureStock(product, sourceRefs.warehouse, session);
+    await ensureStock(product, destinationRefs.warehouse, session);
+    const sourceBefore = await InventoryStock.findOne({ productId, warehouseId: fromWarehouseId }).session(session);
+    const destinationBefore = await InventoryStock.findOne({ productId, warehouseId: toWarehouseId }).session(session);
     const sourceAfter = await InventoryStock.findOneAndUpdate({
       productId, warehouseId: fromWarehouseId,
       $expr: { $gte: [{ $subtract: ['$quantity', '$reservedQuantity'] }, quantity] }
@@ -237,10 +235,9 @@ async function transferStock(data, actorId) {
       { $inc: { quantity }, $set: { minimumStock: product.minStock || 0 } },
       { new: true, runValidators: true, session }
     );
-    const [outMovement, inMovement] = await InventoryMovement.create([
-      { productId, warehouseId: fromWarehouseId, type: 'TRANSFER_OUT', quantity, previousQuantity: sourceBefore.quantity, newQuantity: sourceAfter.quantity, reason, referenceType: 'transfer', referenceId: transferId, transferId, userId },
-      { productId, warehouseId: toWarehouseId, type: 'TRANSFER_IN', quantity, previousQuantity: destinationBefore.quantity, newQuantity: destinationAfter.quantity, reason, referenceType: 'transfer', referenceId: transferId, transferId, userId }
-    ], { session });
+    if (!destinationAfter) throw inventoryError(409, 'INVENTORY_CONFLICT', 'No fue posible actualizar el almacén destino');
+    const outMovement = await createMovement({ productId, warehouseId: fromWarehouseId, type: 'TRANSFER_OUT', quantity, previousQuantity: sourceBefore.quantity, newQuantity: sourceAfter.quantity, reason, referenceType: 'transfer', referenceId: transferId, transferId, userId, session });
+    const inMovement = await createMovement({ productId, warehouseId: toWarehouseId, type: 'TRANSFER_IN', quantity, previousQuantity: destinationBefore.quantity, newQuantity: destinationAfter.quantity, reason, referenceType: 'transfer', referenceId: transferId, transferId, userId, session });
     await recordAudit({
       userId, action: 'inventory.transfer', module: 'inventory', recordId: transferId,
       before: { productId, fromWarehouseId, sourceQuantity: sourceBefore.quantity, toWarehouseId, destinationQuantity: destinationBefore.quantity },

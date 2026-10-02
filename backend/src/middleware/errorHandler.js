@@ -16,6 +16,7 @@ const errorHandler = (err, req, res, next) => {
   else if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') { statusCode = 401; errorCode = 'INVALID_TOKEN'; message = 'Token inválido o expirado'; }
   else if (err.type === 'entity.parse.failed') { statusCode = 400; errorCode = 'INVALID_JSON'; message = 'El cuerpo JSON no es válido'; }
   else if (statusCode >= 500) { message = 'Error interno del servidor'; }
+  if (process.env.NODE_ENV === 'test' && statusCode >= 500) console.error(err);
   const response = {
     success: false,
     message,

@@ -1,3 +1,4 @@
+require('dotenv').config();
 process.env.NODE_ENV = 'test';
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -17,6 +18,7 @@ const { PERMISSIONS } = require('../src/services/permissions');
 const { hashPassword } = require('../src/services/authService');
 const { ensureInitialAdmin } = require('../src/services/bootstrapService');
 const emailService = require('../src/services/emailService');
+const AuditLog = require('../src/models/AuditLog');
 const InventoryStock = require('../src/models/InventoryStock');
 const InventoryMovement = require('../src/models/InventoryMovement');
 
@@ -196,6 +198,31 @@ test('MongoDB integration: auth, RBAC, uniqueness, catalogs and audit', {
   assert.equal(transfer.body.data.movements.length, 2, 'INV-006: transferencia registra ambos movimientos');
   assert.deepEqual(transfer.body.data.movements.map(item => item.type).sort(), ['TRANSFER_IN', 'TRANSFER_OUT']);
   assert.equal(transfer.body.data.movements[0].transferId, transfer.body.data.movements[1].transferId);
+  assert.deepEqual(transfer.body.data.movements.map(item => item.quantity), [3, 3], 'INV-006: ambos movimientos guardan la cantidad transferida');
+  assert.deepEqual(transfer.body.data.movements.map(item => item.previousQuantity), [8, 0]);
+  assert.deepEqual(transfer.body.data.movements.map(item => item.newQuantity), [5, 3]);
+
+  const movementsBeforeSecondHalfFailure = await InventoryMovement.countDocuments();
+  const auditsBeforeSecondHalfFailure = await AuditLog.countDocuments({ module: 'inventory' });
+  const originalMovementCreate = InventoryMovement.create;
+  let movementCreateCalls = 0;
+  InventoryMovement.create = async function createWithInjectedFailure(...args) {
+    movementCreateCalls += 1;
+    if (movementCreateCalls === 2) throw new Error('INV-ROLLBACK simulated second movement failure');
+    return originalMovementCreate.apply(this, args);
+  };
+  let secondMovementFailure;
+  try {
+    secondMovementFailure = await request(app).post(`${inventoryRoute}/transfer`).set('Authorization', `Bearer ${admin}`).send({ productId, fromWarehouseId: warehouseId, toWarehouseId: secondWarehouseId, quantity: 1, reason: 'Prueba de rollback en segundo movimiento' });
+  } finally {
+    InventoryMovement.create = originalMovementCreate;
+  }
+  assert.equal(secondMovementFailure.status, 500, 'INV-ROLLBACK: la falla del segundo movimiento aborta la transferencia');
+  assert.equal(secondMovementFailure.body.message, 'Error interno del servidor', 'el error interno no se expone en la respuesta');
+  assert.equal((await InventoryStock.findOne({ productId, warehouseId })).quantity, 5, 'INV-ROLLBACK: stock origen permanece intacto');
+  assert.equal((await InventoryStock.findOne({ productId, warehouseId: secondWarehouseId })).quantity, 3, 'INV-ROLLBACK: stock destino permanece intacto');
+  assert.equal(await InventoryMovement.countDocuments(), movementsBeforeSecondHalfFailure, 'INV-ROLLBACK: no quedan movimientos parciales');
+  assert.equal(await AuditLog.countDocuments({ module: 'inventory' }), auditsBeforeSecondHalfFailure, 'INV-ROLLBACK: no queda auditoría parcial');
 
   const movementCountBeforeFailedTransfer = await InventoryMovement.countDocuments();
   const failedTransfer = await request(app).post(`${inventoryRoute}/transfer`).set('Authorization', `Bearer ${admin}`).send({ productId, fromWarehouseId: warehouseId, toWarehouseId: secondWarehouseId, quantity: 99, reason: 'Debe revertirse' });
