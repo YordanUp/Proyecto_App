@@ -104,10 +104,8 @@ async function withInventoryTransaction(operation) {
 }
 
 async function activeReferences(productId, warehouseId, session) {
-  const [product, warehouse] = await Promise.all([
-    Product.findOne({ _id: productId, status: 'active' }).select('_id minStock').session(session),
-    Warehouse.findOne({ _id: warehouseId, status: 'active' }).select('_id').session(session)
-  ]);
+  const product = await Product.findOne({ _id: productId, status: 'active' }).select('_id minStock').session(session);
+  const warehouse = await Warehouse.findOne({ _id: warehouseId, status: 'active' }).select('_id').session(session);
   if (!product) throw inventoryError(404, 'PRODUCT_NOT_FOUND', 'El producto no existe o está inactivo');
   if (!warehouse) throw inventoryError(404, 'WAREHOUSE_NOT_FOUND', 'El almacén no existe o está inactivo');
   return { product, warehouse };

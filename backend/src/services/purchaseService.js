@@ -122,10 +122,8 @@ async function calculateItems(inputItems, session) {
     const warehouseId = objectId(input?.warehouseId || input?.warehouse, `items[${index}].warehouseId`);
     const quantity = Number(input.quantity);
     if (!Number.isFinite(quantity) || quantity <= 0) throw purchaseError(400, 'VALIDATION_ERROR', `La cantidad del producto ${index + 1} debe ser mayor a cero`);
-    const [product, warehouse] = await Promise.all([
-      Product.findOne({ _id: productId, status: 'active' }).session(session),
-      Warehouse.findOne({ _id: warehouseId, status: 'active' }).session(session)
-    ]);
+    const product = await Product.findOne({ _id: productId, status: 'active' }).session(session);
+    const warehouse = await Warehouse.findOne({ _id: warehouseId, status: 'active' }).session(session);
     if (!product) throw purchaseError(404, 'PRODUCT_NOT_FOUND', `El producto de la línea ${index + 1} no existe o está inactivo`);
     if (!warehouse) throw purchaseError(404, 'WAREHOUSE_NOT_FOUND', `El almacén de la línea ${index + 1} no existe o está inactivo`);
     const unitCost = input.unitCost === undefined ? Number(product.purchasePrice) : Number(input.unitCost);
