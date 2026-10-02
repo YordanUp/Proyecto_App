@@ -8,9 +8,9 @@ La aplicación no escucha hasta conectar MongoDB. El proceso gestiona cierre ord
 
 ## Estado por dominios
 
-Persistente: users, roles, categorías, productos, clientes, proveedores, almacenes y audit logs.
+Persistente: users, roles, categorías, productos, clientes, proveedores, almacenes, existencias, movimientos de inventario, ventas, compras, finanzas, dashboard agregado, reportes y audit logs.
 
-Prototipo con datos en memoria: inventario, ventas, compras, finanzas, dashboard, reportes, notificaciones, ajustes e integraciones. Sus services siguen leyendo `src/data/`; rutas existentes se conservan, pero no representan operaciones persistentes.
+Prototipo con datos en memoria: cotizaciones/solicitudes de devolución, notificaciones, ajustes e integraciones. El registro de reportes simulado fue retirado de la API; el fixture que queda en `src/data/reports.js` no se usa para reportes operativos. Las consultas Mongo están descritas en `docs/api.md`.
 
 ## Transacciones
 

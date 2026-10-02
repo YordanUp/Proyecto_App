@@ -6,7 +6,7 @@ ERP modular en evolución. El núcleo de identidad, autorización, catálogos, I
 
 Persisten en MongoDB: usuarios, roles, categorías, productos, clientes, proveedores, almacenes, existencias, movimientos de inventario, ventas, compras, cuentas por cobrar/pagar, movimientos financieros y auditoría. La autenticación consulta el usuario activo y sus permisos actuales en cada petición protegida.
 
-Siguen siendo prototipos en memoria: cotizaciones y solicitudes de devolución, dashboard, reportes, notificaciones, ajustes e integraciones. Las ventas y compras usan folios persistentes y sus transiciones actualizan inventario y crean sus cuentas financieras relacionadas dentro de la misma transacción. Los pagos persisten sus movimientos y auditoría. El dashboard mantiene indicadores de muestra. No se importan datos demo a producción.
+Siguen siendo prototipos en memoria: cotizaciones y solicitudes de devolución, notificaciones, ajustes e integraciones. Dashboard y reportes consultan ventas, compras, existencias, cuentas y movimientos financieros persistidos; la exportación CSV registra un evento de auditoría. Las ventas y compras usan folios persistentes y sus transiciones actualizan inventario y crean sus cuentas financieras relacionadas dentro de la misma transacción. Los pagos persisten sus movimientos y auditoría. No se importan datos demo a producción.
 
 ## Tecnologías y estructura
 
@@ -70,6 +70,14 @@ La suite backend incluye pruebas de esquema/hash y suites de integración que so
 - `POST /api/auth/verify-email` confirma cuentas nuevas; `POST /api/auth/resend-verification` reenvía de forma genérica y limitada. Consulta `backend/README.md` para la configuración de Resend y compatibilidad de usuarios existentes.
 - Las rutas protegidas consultan el usuario/rol en Mongo. Las respuestas siguen `{ success, message, data }` o `{ success, message, error }`.
 - El catálogo ofrece búsqueda, filtros, orden, paginación (25 por omisión, hasta 100) y eliminación lógica.
+
+### Dashboard y reportes
+
+- `GET /api/dashboard` agrega indicadores de ventas confirmadas por día/mes UTC, compras pendientes/recibidas, stock bajo/sin existencia, saldos CxC/CxP y listas recientes. Requiere `dashboard.read`.
+- `GET /api/reports/data/:type` ofrece reportes `sales`, `purchases`, `inventory-stock`, `inventory-movements`, `receivables`, `payables` y `finance-movements`; admite filtros aplicables, búsqueda, orden y paginación (máximo 100 por página). La respuesta incluye cantidad de registros y totales; movimientos de inventario también incluye entradas/salidas y conteo de movimientos.
+- `GET /api/reports/data/:type/export.csv` exporta el conjunto filtrado hasta 10,000 filas, escapa campos CSV y registra la exportación en la auditoría. Requiere `reports.read`.
+- Los filtros de cliente/proveedor/producto/almacén aceptan ObjectId o nombre. Las fechas `from`/`to` aceptan `YYYY-MM-DD` (UTC) o ISO datetime.
+- El listado/creación heredado de “reportes generados” en memoria fue retirado; las notificaciones siguen siendo un prototipo independiente. `reportSeed` permanece como fixture sin uso productivo.
 
 ## Limitaciones y siguiente etapa
 

@@ -29,7 +29,9 @@ npm test
 
 ## Persistencia real
 
-Usuarios, roles, catálogos, existencias, movimientos de inventario, ventas, compras, cuentas por cobrar/pagar, movimientos financieros y auditoría usan MongoDB. Cotizaciones y solicitudes de devolución, dashboard y otros módulos visibles aún son demostrativos; consulta el README raíz antes de usarlos.
+Usuarios, roles, catálogos, existencias, movimientos de inventario, ventas, compras, cuentas por cobrar/pagar, movimientos financieros, dashboard, reportes analíticos y auditoría usan MongoDB. Cotizaciones y solicitudes de devolución, notificaciones, ajustes e integraciones visibles aún son demostrativos; consulta el README raíz antes de usarlos.
+
+Dashboard (`GET /api/dashboard`, permiso `dashboard.read`) calcula indicadores con ventas confirmadas por día/mes UTC, compras, inventario y cuentas financieras, e incluye listas recientes. Los reportes (`GET /api/reports/data/:type`, permiso `reports.read`) permiten consultar ventas, compras, existencias, movimientos de inventario, CxC, CxP y movimientos financieros con filtros, orden, paginación y totales. El endpoint `/export.csv` respeta esos filtros, limita la exportación a 10,000 filas y registra la acción en auditoría.
 
 Las operaciones de usuario, rol, catálogo, inventario, ventas y compras escriben el cambio y el evento de auditoría en una transacción. Entradas, salidas y ajustes guardan movimiento y existencia juntos. Una transferencia modifica ambas existencias, crea los dos movimientos y audita en la misma transacción. Confirmar o cancelar una venta actualiza su estado, inventario, movimientos y auditoría en una sola transacción. Recibir una compra actualiza el estado, las existencias, los movimientos de recepción y la auditoría en una sola transacción. Se requiere MongoDB Atlas o MongoDB configurado como replica set.
 

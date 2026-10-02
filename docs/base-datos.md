@@ -12,6 +12,11 @@ MongoDB Atlas es la persistencia operativa para usuarios, roles, categorías, pr
 | Product | código único normalizado; nombre/búsqueda; categoría referenciada; precios validados |
 | Client / Supplier | correo normalizado y único cuando se especifica; estado y timestamps |
 | Warehouse | nombre único; estado y timestamps |
+| InventoryStock | unicidad por producto/almacén; existencia, reservados y mínimo |
+| InventoryMovement | producto/almacén/fecha, tipo/fecha, referencia; movimientos inmutables |
+| Sale / Purchase | folio único, estado/fecha, cliente/proveedor; snapshots y timestamps |
+| AccountsReceivable / AccountsPayable | folio y documento origen únicos; estado, cliente/proveedor y fecha |
+| FinancialMovement | fecha, cuenta y referencia; movimientos financieros inmutables |
 | AuditLog | módulo/fecha, usuario, registro y fecha indexados; sin rutas de borrado/edición |
 
 Los índices se crean automáticamente en desarrollo/pruebas. En producción se deshabilita `autoIndex`; `npm run db:indexes` crea los índices de los modelos sin borrar otros índices existentes.
@@ -22,4 +27,4 @@ Altas y cambios de usuario, roles y catálogos incluyen su auditoría en la mism
 
 ## Migraciones pendientes
 
-Los arrays exportados por `src/data/` siguen siendo la fuente de estas pantallas prototipo: inventario/movimientos/almacenes legacy; ventas; compras; finanzas; dashboard; reportes/notificaciones/auditoría legacy; settings e integraciones. La auditoría mostrada por `/api/reports/audit` ya lee la colección persistente `AuditLog`; los otros arrays de `reports.js` no.
+Los arrays exportados por `src/data/` permanecen en funciones heredadas prototipo: cotizaciones/devoluciones, notificaciones, ajustes e integraciones. Dashboard y reportes operativos agregan o consultan los modelos persistidos; `reportSeed` es un fixture sin endpoint productivo. La auditoría mostrada por `/api/reports/audit` lee la colección persistente `AuditLog`.
