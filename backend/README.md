@@ -29,17 +29,23 @@ npm test
 
 ## Persistencia real
 
-Usuarios, roles, catálogos y auditoría usan MongoDB. El resto de módulos visibles aún usa datos de `src/data/` y es demostrativo; consulta el README raíz antes de usarlo.
+Usuarios, roles, catálogos, existencias, movimientos de inventario y auditoría usan MongoDB. Ventas, compras, finanzas, dashboard y otros módulos visibles aún usan datos de `src/data/` y son demostrativos; consulta el README raíz antes de usarlos.
 
-Las operaciones de usuario, rol y catálogo escriben el cambio y el evento de auditoría en una transacción. Se requiere MongoDB Atlas o MongoDB configurado como replica set.
+Las operaciones de usuario, rol, catálogo e inventario escriben el cambio y el evento de auditoría en una transacción. Entradas, salidas y ajustes guardan movimiento y existencia juntos. Una transferencia modifica ambas existencias, crea los dos movimientos y audita en la misma transacción. Se requiere MongoDB Atlas o MongoDB configurado como replica set.
 
-En producción `autoIndex` está desactivado: después de revisar el entorno ejecuta `npm run db:indexes` para crear los índices declarados (no elimina índices existentes).
+En producción `autoIndex` está desactivado: después de revisar el entorno ejecuta `npm run db:indexes` para crear los índices declarados de catálogos e inventario (no elimina índices existentes).
 
 ## API y seguridad
 
 El JWT solo lleva `sub`; el middleware recarga el estado del usuario y los permisos efectivos de su rol. Las contraseñas se almacenan con bcrypt, nunca en texto plano. Los errores 5xx se sanitizan. `GET /api/health` indica disponibilidad conjunta de API y base.
 
 Los catálogos permiten `search`, `status`, `page`, `limit` (máximo 100), `sort` y `order`. Las bajas son lógicas; la API no ofrece borrado físico de catálogos o eventos de auditoría.
+
+## Inventario persistente
+
+`InventoryStock` tiene una existencia por producto y almacén, con índice único compuesto, cantidad reservada y mínimo. `InventoryMovement` conserva el tipo, cantidad antes/después, motivo, referencias, actor y fecha; no hay endpoint para editar o borrar movimientos. Toda entrada, salida, ajuste y transferencia actualiza existencias dentro de una transacción y registra auditoría. Las salidas y transferencias verifican de forma atómica el stock disponible (`quantity - reservedQuantity`) y no aceptan cantidades negativas.
+
+Endpoints autenticados: `GET /api/inventory`, `GET /api/inventory/movements`, `GET /api/inventory/warehouses`, `POST /api/inventory/entry`, `POST /api/inventory/exit`, `POST /api/inventory/adjust` y `POST /api/inventory/transfer`. Las consultas aceptan filtros `search`, `warehouseId`, `productId`, `type`, fechas `from`/`to`, paginación `page`/`limit` y `lowStock=true` para existencias. Entrada/salida requieren `inventory.create`; ajuste/transferencia usan `inventory.adjust`, el permiso existente, para no exigir una migración RBAC a los roles bootstrap actuales. El actor siempre se toma del JWT, nunca del body. Los antiguos arrays demo no se importan a MongoDB.
 
 ## Correo transaccional y verificación
 
@@ -53,4 +59,4 @@ Endpoints web: `/verify-email?token=...` y `/login`. La app móvil consume el en
 
 ## Pruebas
 
-`npm test` ejecuta validaciones de modelos/hash y unidades de tokens/plantillas de correo. La suite `persistence.integration.test.js` cubre flujos persistentes y requiere `TEST_MONGODB_URI` de una base desechable compatible con transacciones; borra solo la base aislada que crea.
+`npm test` ejecuta validaciones de modelos/hash, validaciones de inventario y unidades de tokens/plantillas de correo. `persistence.integration.test.js` cubre flujos persistentes, incluyendo inventario y concurrencia, y requiere `TEST_MONGODB_URI` de una base desechable compatible con transacciones; borra solo la base aislada que crea.

@@ -1,5 +1,6 @@
 import { API_URL, apiFetch } from '../../services/api';
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 
 export default function ProductsPage({ session }) {
@@ -55,7 +56,7 @@ export default function ProductsPage({ session }) {
                 <th>Nombre</th>
                 <th>Categoría</th>
                 <th>Precio</th>
-                <th>Stock</th>
+                <th>Existencias</th>
               </tr>
             </thead>
             <tbody>
@@ -70,7 +71,7 @@ export default function ProductsPage({ session }) {
                     <td>{product.name}</td>
                     <td>{product.categoryId || 'Sin categoría'}</td>
                     <td>${Number(product.salePrice || 0).toLocaleString()}</td>
-                    <td>{product.stock ?? 0}</td>
+                    <td><Link to="/inventory">Consultar inventario</Link></td>
                   </tr>
                 ))
               )}

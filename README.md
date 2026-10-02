@@ -4,9 +4,9 @@ ERP modular en evolución. Esta etapa convierte el núcleo de identidad, autoriz
 
 ## Estado real del repositorio
 
-Persisten en MongoDB: usuarios, roles, categorías, productos, clientes, proveedores, almacenes y auditoría. La autenticación consulta el usuario activo y sus permisos actuales en cada petición protegida.
+Persisten en MongoDB: usuarios, roles, categorías, productos, clientes, proveedores, almacenes, existencias, movimientos de inventario y auditoría. La autenticación consulta el usuario activo y sus permisos actuales en cada petición protegida.
 
-Siguen siendo prototipos en memoria: inventario y movimientos, ventas, compras, finanzas, dashboard, reportes, notificaciones, ajustes e integraciones. Sus pantallas/endpoints no deben usarse para operar datos reales. No se migraron ni eliminaron en esta etapa.
+Siguen siendo prototipos en memoria: ventas, compras, finanzas, dashboard, reportes, notificaciones, ajustes e integraciones. El dashboard mantiene indicadores de muestra aunque inventario ya tenga persistencia; no lo presenta como operativo. No se importan datos demo a producción.
 
 ## Tecnologías y estructura
 
@@ -73,4 +73,4 @@ La suite backend incluye pruebas de esquema/hash y una suite de integración que
 
 ## Limitaciones y siguiente etapa
 
-Los antiguos tests de endpoints basados en usuarios y datos inventados se retiraron como evidencia de persistencia. Los archivos `backend/src/data/` siguen siendo usados por los módulos prototipo listados arriba y se migrarán por etapas. El siguiente trabajo recomendado es preparar inventario persistente y sus movimientos atómicos antes de habilitarlo para operaciones reales.
+Los tests de integración que requieren MongoDB se omiten explícitamente cuando falta `TEST_MONGODB_URI`; no cuentan como aprobados. `backend/src/data/` sigue en uso por módulos prototipo, pero Inventario ya no depende del antiguo seed en memoria. El siguiente bloque operativo es Ventas, después de validar inventario contra una MongoDB de pruebas compatible con transacciones.

@@ -1,30 +1,38 @@
-const { listInventory, listWarehouses, addMovement, listMovements } = require('../services/inventoryService');
-const { successResponse, errorResponse } = require('../utils/response');
+const service = require('../services/inventoryService');
+const { successResponse } = require('../utils/response');
 
-function getInventory(req, res) {
-  return successResponse(res, 200, 'Inventario consultado', listInventory());
-}
-
-function getWarehouses(req, res) {
-  return successResponse(res, 200, 'Almacenes consultados', listWarehouses());
-}
-
-function addInventoryMovement(req, res) {
+async function getInventory(req, res, next) {
   try {
-    const movement = addMovement(req.body);
-    return successResponse(res, 201, 'Movimiento de inventario registrado', movement);
-  } catch (error) {
-    return errorResponse(res, 400, error.message, 'INVENTORY_MOVEMENT_ERROR');
-  }
+    const result = await service.listInventory(req.query);
+    return res.status(200).json({ success: true, message: 'Existencias consultadas correctamente', data: result.items, pagination: result.pagination });
+  } catch (error) { return next(error); }
 }
 
-function getMovements(req, res) {
-  return successResponse(res, 200, 'Movimientos de inventario consultados', listMovements());
+async function getWarehouses(req, res, next) {
+  try { return successResponse(res, 200, 'Almacenes consultados correctamente', await service.listWarehouses()); }
+  catch (error) { return next(error); }
+}
+
+async function getMovements(req, res, next) {
+  try {
+    const result = await service.listMovements(req.query);
+    return res.status(200).json({ success: true, message: 'Movimientos consultados correctamente', data: result.items, pagination: result.pagination });
+  } catch (error) { return next(error); }
+}
+
+function movementHandler(operation, message) {
+  return async (req, res, next) => {
+    try { return successResponse(res, 201, message, await operation(req.body || {}, req.user.id)); }
+    catch (error) { return next(error); }
+  };
 }
 
 module.exports = {
   getInventory,
   getWarehouses,
-  addInventoryMovement,
-  getMovements
+  getMovements,
+  addEntry: movementHandler(service.addEntry, 'Entrada de inventario registrada'),
+  addExit: movementHandler(service.addExit, 'Salida de inventario registrada'),
+  adjustStock: movementHandler(service.adjustStock, 'Existencia ajustada correctamente'),
+  transferStock: movementHandler(service.transferStock, 'Transferencia de inventario completada')
 };

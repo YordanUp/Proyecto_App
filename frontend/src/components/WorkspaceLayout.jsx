@@ -9,7 +9,7 @@ const sections = [
   {
     label: 'Operación',
     items: [
-      { to: '/inventory', label: 'Inventario', icon: '▤', demo: true },
+      { to: '/inventory', label: 'Inventario', icon: '▤' },
       { to: '/sales', label: 'Ventas', icon: '↗', demo: true },
       { to: '/purchases', label: 'Compras', icon: '⇣', demo: true },
       { to: '/finance', label: 'Finanzas', icon: '◉', demo: true }
@@ -59,7 +59,7 @@ Object.assign(pageTitles, {
 });
 
 const pageDescriptions = {
-  '/inventory': 'Consulta de existencias y almacenes.',
+  '/inventory': 'Existencias y movimientos persistidos por almacén.',
   '/sales': 'Consulta demostrativa de cotizaciones y ventas.',
   '/purchases': 'Consulta demostrativa de órdenes y compras.',
   '/finance': 'Consulta demostrativa de cuentas y pagos.',
@@ -75,7 +75,7 @@ const pageDescriptions = {
   '/settings': 'Preferencias de muestra, aún no persistidas.'
 };
 
-const demoPaths = new Set(['/inventory', '/sales', '/purchases', '/finance', '/reports', '/notifications', '/integrations', '/settings']);
+const demoPaths = new Set(['/sales', '/purchases', '/finance', '/reports', '/notifications', '/integrations', '/settings']);
 
 function initials(name = '') {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'U';

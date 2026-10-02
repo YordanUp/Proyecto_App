@@ -5,6 +5,8 @@ require('../src/models/User');
 require('../src/models/Role');
 require('../src/models/AuditLog');
 require('../src/models/catalog');
+require('../src/models/InventoryStock');
+require('../src/models/InventoryMovement');
 
 async function main() {
   await connectDatabase();
