@@ -378,6 +378,29 @@ label { display: block; margin-bottom: 13px; color: #646a78; font-size: 11px; fo
   .pipeline-step:nth-child(3) { padding-left: 0; }
   .area-chart { height: 175px; }
 }
+.dashboard-real-grid { align-items: start; }
+.dashboard-alert-list { list-style: none; margin: 0; padding: 0; }
+.dashboard-alert-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--border, #e7e9ee); }
+.dashboard-alert-list li:last-child { border-bottom: 0; }
+.dashboard-alert-list li span { display: grid; gap: 4px; min-width: 0; }
+.dashboard-alert-list small, .dashboard-updated { color: var(--muted, #737987); }
+.dashboard-alert-list b { white-space: nowrap; color: #b64c39; }
+.dashboard-updated { display: block; margin: 15px 2px; }
+.report-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 14px; margin-bottom: 18px; align-items: end; }
+.report-filters label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text, #303542); }
+.report-filters input, .report-filters select { width: 100%; min-height: 40px; border: 1px solid var(--border, #dfe2e8); border-radius: 8px; padding: 8px 10px; background: var(--surface, #fff); color: inherit; }
+.report-filters .report-checkbox { display: flex; align-items: center; gap: 9px; min-height: 40px; }
+.report-filters .report-checkbox input { width: auto; min-height: auto; }
+.report-results { min-width: 0; }
+.report-totals { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 18px; }
+.report-totals div { display: grid; gap: 4px; min-width: 145px; padding: 12px 14px; border-radius: 9px; background: var(--surface-subtle, #f5f7fa); }
+.report-totals span { color: var(--muted, #737987); font-size: 12px; }
+.report-totals strong { font-size: 16px; }
+.report-pagination { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 16px; }
+.report-pagination > div { display: flex; gap: 8px; }
+.report-pagination button:disabled { opacity: .55; cursor: not-allowed; }
+.success-box { color: #176c4e; }
+
 @media (max-width: 430px) {
   .stats-grid, .dashboard-primary .stats-grid { grid-template-columns: 1fr 1fr; gap: 9px; }
   .stat-card, .dashboard-primary .stat-card { min-height: 112px; padding: 13px; }

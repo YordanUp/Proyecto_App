@@ -29,7 +29,7 @@ const sections = [
       { to: '/users', label: 'Usuarios', icon: '♙' },
       { to: '/roles', label: 'Roles y permisos', icon: '⌘' },
       { to: '/audit', label: 'Auditoría', icon: '◷' },
-      { to: '/reports', label: 'Reportes', icon: '▥', demo: true },
+      { to: '/reports', label: 'Reportes', icon: '▥' },
       { to: '/notifications', label: 'Notificaciones', icon: '♧', demo: true },
       { to: '/integrations', label: 'Integraciones', icon: '⤢', demo: true },
       { to: '/settings', label: 'Configuración', icon: '⚙', demo: true }
@@ -69,13 +69,13 @@ const pageDescriptions = {
   '/users': 'Administración persistente de cuentas de usuario.',
   '/roles': 'Administración persistente de roles y permisos.',
   '/audit': 'Eventos persistentes registrados por el núcleo.',
-  '/reports': 'Reportes de muestra; la bitácora del núcleo se consulta por separado.',
+  '/reports': 'Reportes operativos consultados de ventas, compras, inventario y finanzas.',
   '/notifications': 'Bandeja demostrativa de notificaciones.',
   '/integrations': 'Panel demostrativo de integraciones.',
   '/settings': 'Preferencias de muestra, aún no persistidas.'
 };
 
-const demoPaths = new Set(['/reports', '/notifications', '/integrations', '/settings']);
+const demoPaths = new Set(['/notifications', '/integrations', '/settings']);
 
 function initials(name = '') {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'U';
@@ -166,9 +166,7 @@ export default function WorkspaceLayout({ session, onLogout }) {
           </div> : null}
           {isDemo && pathname !== '/' ? <div className="module-demo-notice" role="note">
             <span aria-hidden="true">ⓘ</span>
-            <span><strong>Vista demostrativa.</strong> {pathname === '/reports'
-              ? 'Los reportes y notificaciones son datos de muestra; la bitácora del núcleo sí contiene eventos persistidos.'
-              : 'Los datos de esta área no representan registros empresariales persistidos.'}</span>
+            <span><strong>Vista demostrativa.</strong> Los datos de esta área no representan registros empresariales persistidos.</span>
           </div> : null}
           <Outlet />
         </main>
