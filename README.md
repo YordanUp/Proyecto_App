@@ -1,12 +1,12 @@
 # ERP Modular
 
-ERP modular en evolución. Esta etapa convierte el núcleo de identidad, autorización, catálogos y auditoría a persistencia MongoDB. No implica que todos los módulos visibles en la interfaz ya sean persistentes.
+ERP modular en evolución. El núcleo de identidad, autorización y catálogos, además de Inventario y Ventas, persiste en MongoDB. No implica que todos los módulos visibles en la interfaz ya sean persistentes.
 
 ## Estado real del repositorio
 
-Persisten en MongoDB: usuarios, roles, categorías, productos, clientes, proveedores, almacenes, existencias, movimientos de inventario y auditoría. La autenticación consulta el usuario activo y sus permisos actuales en cada petición protegida.
+Persisten en MongoDB: usuarios, roles, categorías, productos, clientes, proveedores, almacenes, existencias, movimientos de inventario, ventas y auditoría. La autenticación consulta el usuario activo y sus permisos actuales en cada petición protegida.
 
-Siguen siendo prototipos en memoria: ventas, compras, finanzas, dashboard, reportes, notificaciones, ajustes e integraciones. El dashboard mantiene indicadores de muestra aunque inventario ya tenga persistencia; no lo presenta como operativo. No se importan datos demo a producción.
+Siguen siendo prototipos en memoria: cotizaciones y solicitudes de devolución, compras, finanzas, dashboard, reportes, notificaciones, ajustes e integraciones. Las ventas usan folios persistentes y solo descuentan inventario al confirmarse; el dashboard mantiene indicadores de muestra. No se importan datos demo a producción.
 
 ## Tecnologías y estructura
 
@@ -73,4 +73,4 @@ La suite backend incluye pruebas de esquema/hash y una suite de integración que
 
 ## Limitaciones y siguiente etapa
 
-Los tests de integración que requieren MongoDB se omiten explícitamente cuando falta `TEST_MONGODB_URI`; no cuentan como aprobados. `backend/src/data/` sigue en uso por módulos prototipo, pero Inventario ya no depende del antiguo seed en memoria. El siguiente bloque operativo es Ventas, después de validar inventario contra una MongoDB de pruebas compatible con transacciones.
+Los tests de integración que requieren MongoDB se omiten explícitamente cuando falta `TEST_MONGODB_URI`; no cuentan como aprobados. `backend/src/data/` sigue en uso por módulos prototipo, pero Inventario y Ventas ya no dependen de seeds en memoria. El siguiente bloque operativo será Compras, después de validar las ventas en pruebas operativas.

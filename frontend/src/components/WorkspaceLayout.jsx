@@ -10,7 +10,7 @@ const sections = [
     label: 'Operación',
     items: [
       { to: '/inventory', label: 'Inventario', icon: '▤' },
-      { to: '/sales', label: 'Ventas', icon: '↗', demo: true },
+      { to: '/sales', label: 'Ventas', icon: '↗' },
       { to: '/purchases', label: 'Compras', icon: '⇣', demo: true },
       { to: '/finance', label: 'Finanzas', icon: '◉', demo: true }
     ]
@@ -43,7 +43,7 @@ const pageTitles = sections.flatMap(section => section.items).reduce((titles, it
 }, {});
 Object.assign(pageTitles, {
   '/inventory': 'Stock y almacenes',
-  '/sales': 'Cotizaciones y ventas',
+  '/sales': 'Ventas',
   '/purchases': 'Órdenes y compras',
   '/finance': 'Cuentas y pagos',
   '/products': 'Productos',
@@ -60,7 +60,7 @@ Object.assign(pageTitles, {
 
 const pageDescriptions = {
   '/inventory': 'Existencias y movimientos persistidos por almacén.',
-  '/sales': 'Consulta demostrativa de cotizaciones y ventas.',
+  '/sales': 'Ventas persistentes con confirmación y movimientos de inventario transaccionales.',
   '/purchases': 'Consulta demostrativa de órdenes y compras.',
   '/finance': 'Consulta demostrativa de cuentas y pagos.',
   '/products': 'Catálogo persistente de productos.',
@@ -75,7 +75,7 @@ const pageDescriptions = {
   '/settings': 'Preferencias de muestra, aún no persistidas.'
 };
 
-const demoPaths = new Set(['/sales', '/purchases', '/finance', '/reports', '/notifications', '/integrations', '/settings']);
+const demoPaths = new Set(['/purchases', '/finance', '/reports', '/notifications', '/integrations', '/settings']);
 
 function initials(name = '') {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'U';

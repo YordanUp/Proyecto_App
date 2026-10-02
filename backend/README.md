@@ -29,11 +29,11 @@ npm test
 
 ## Persistencia real
 
-Usuarios, roles, catálogos, existencias, movimientos de inventario y auditoría usan MongoDB. Ventas, compras, finanzas, dashboard y otros módulos visibles aún usan datos de `src/data/` y son demostrativos; consulta el README raíz antes de usarlos.
+Usuarios, roles, catálogos, existencias, movimientos de inventario, ventas y auditoría usan MongoDB. Cotizaciones y solicitudes de devolución, compras, finanzas, dashboard y otros módulos visibles aún son demostrativos; consulta el README raíz antes de usarlos.
 
-Las operaciones de usuario, rol, catálogo e inventario escriben el cambio y el evento de auditoría en una transacción. Entradas, salidas y ajustes guardan movimiento y existencia juntos. Una transferencia modifica ambas existencias, crea los dos movimientos y audita en la misma transacción. Se requiere MongoDB Atlas o MongoDB configurado como replica set.
+Las operaciones de usuario, rol, catálogo, inventario y ventas escriben el cambio y el evento de auditoría en una transacción. Entradas, salidas y ajustes guardan movimiento y existencia juntos. Una transferencia modifica ambas existencias, crea los dos movimientos y audita en la misma transacción. Confirmar o cancelar una venta actualiza su estado, inventario, movimientos y auditoría en una sola transacción. Se requiere MongoDB Atlas o MongoDB configurado como replica set.
 
-En producción `autoIndex` está desactivado: después de revisar el entorno ejecuta `npm run db:indexes` para crear los índices declarados de catálogos e inventario (no elimina índices existentes).
+En producción `autoIndex` está desactivado: después de revisar el entorno ejecuta `npm run db:indexes` para crear los índices declarados de catálogos, inventario, ventas y secuencias (no elimina índices existentes).
 
 ## API y seguridad
 
@@ -47,6 +47,14 @@ Los catálogos permiten `search`, `status`, `page`, `limit` (máximo 100), `sort
 
 Endpoints autenticados: `GET /api/inventory`, `GET /api/inventory/movements`, `GET /api/inventory/warehouses`, `POST /api/inventory/entry`, `POST /api/inventory/exit`, `POST /api/inventory/adjust` y `POST /api/inventory/transfer`. Las consultas aceptan filtros `search`, `warehouseId`, `productId`, `type`, fechas `from`/`to`, paginación `page`/`limit` y `lowStock=true` para existencias. Entrada/salida requieren `inventory.create`; ajuste/transferencia usan `inventory.adjust`, el permiso existente, para no exigir una migración RBAC a los roles bootstrap actuales. El actor siempre se toma del JWT, nunca del body. Los antiguos arrays demo no se importan a MongoDB.
 
+## Ventas persistentes
+
+`Sale` persiste cliente, artículos, snapshots del nombre/SKU/precio, impuestos, totales, folio `VEN-AAAA-######`, usuario creador, estado y fechas. La secuencia anual de folios usa un contador atómico y un índice único. Crear o editar un borrador no toca inventario. Confirmar valida cliente, producto, almacén y stock disponible; descuenta existencias y crea movimientos `SALE`. Cancelar un borrador solo cambia estado; cancelar una venta confirmada repone existencias y crea movimientos `RETURN`. Estado, cambios de stock, movimientos y auditoría comparten transacción. Se respetan las cantidades reservadas; la confirmación concurrente no permite sobreventa.
+
+Endpoints autenticados: `GET /api/sales` (busca folio/cliente; filtra `status`, `customerId`, `from`, `to`; pagina y ordena), `GET /api/sales/:id`, `POST /api/sales`, `PUT /api/sales/:id`, `POST /api/sales/:id/confirm` y `POST /api/sales/:id/cancel`. Los borradores requieren `sales.create`; editar requiere `sales.update`; cancelar requiere `sales.cancel`; lectura requiere `sales.read`. No existe `sales.confirm` en el catálogo de permisos, por lo que confirmar usa el permiso existente `sales.create`. El servidor calcula precios, impuestos y totales; la UI no establece el estado ni los totales finales.
+
+Las cotizaciones y solicitudes de devolución anteriores siguen en memoria y fuera de esta etapa; ya no se muestran como ventas persistentes en la pantalla ni se usan para crear ventas. No hay todavía cuentas por cobrar: la integración financiera queda pendiente de la fase de Finanzas.
+
 ## Correo transaccional y verificación
 
 La creación administrativa de usuarios crea una cuenta sin verificar y solicita el correo de confirmación. Configura `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `APP_PUBLIC_URL` y `EMAIL_ENABLED=true` para activar entregas; con `EMAIL_ENABLED=false` no se envían correos y las cuentas nuevas permanecen pendientes. `RESEND_API_KEY` es solo del backend. En Render define las variables como secretos/configuración del servicio, sin registrarlas en el repositorio.
@@ -59,4 +67,4 @@ Endpoints web: `/verify-email?token=...` y `/login`. La app móvil consume el en
 
 ## Pruebas
 
-`npm test` ejecuta validaciones de modelos/hash, validaciones de inventario y unidades de tokens/plantillas de correo. `persistence.integration.test.js` cubre flujos persistentes, incluyendo inventario y concurrencia, y requiere `TEST_MONGODB_URI` de una base desechable compatible con transacciones; borra solo la base aislada que crea.
+`npm test` ejecuta validaciones de modelos/hash, inventario, ventas y unidades de tokens/plantillas de correo. `persistence.integration.test.js` cubre flujos persistentes, incluyendo confirmación/cancelación, rollback y concurrencia de inventario/ventas. Carga `backend/.env`, requiere `TEST_MONGODB_URI` de una base desechable compatible con transacciones y crea/elimina solo una base `erp_test_<proceso>_<fecha>` aislada; no usa `MONGODB_URI` para la integración.

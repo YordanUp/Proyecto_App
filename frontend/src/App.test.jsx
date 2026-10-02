@@ -55,7 +55,7 @@ describe('App routing and auth flow', () => {
     renderWithRouter(['/sales']);
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /cotizaciones y ventas/i })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /ventas persistentes/i })).toBeInTheDocument();
     });
   });
 
