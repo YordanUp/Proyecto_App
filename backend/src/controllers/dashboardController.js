@@ -1,13 +1,13 @@
-const { getMetrics, getRevenueChart } = require('../services/dashboardService');
+const { getMetrics } = require('../services/dashboardService');
 const { successResponse } = require('../utils/response');
 
-function getDashboard(req, res) {
-  return successResponse(res, 200, 'Dashboard consultado', {
-    metrics: getMetrics(),
-    chart: getRevenueChart()
-  });
+async function getDashboard(req, res, next) {
+  try {
+    const data = await getMetrics();
+    return successResponse(res, 200, 'Dashboard consultado', data);
+  } catch (error) {
+    return next(error);
+  }
 }
 
-module.exports = {
-  getDashboard
-};
+module.exports = { getDashboard };
