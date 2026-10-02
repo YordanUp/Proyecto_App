@@ -1,50 +1,37 @@
-const { listAccounts, createAccount, listMovements, createMovement, listPayments, createPayment } = require('../services/financeService');
-const { successResponse, errorResponse } = require('../utils/response');
+const service = require('../services/financeService');
+const { successResponse } = require('../utils/response');
 
-function getAccounts(req, res) {
-  return successResponse(res, 200, 'Cuentas consultadas', listAccounts());
+function listHandler(operation, label) {
+  return async (req, res, next) => {
+    try {
+      const result = await operation(req.query);
+      return res.status(200).json({ success: true, message: `${label} consultados correctamente`, data: result.items, pagination: result.pagination });
+    } catch (error) { return next(error); }
+  };
 }
 
-function createAccountController(req, res) {
-  try {
-    const account = createAccount(req.body);
-    return successResponse(res, 201, 'Cuenta creada correctamente', account);
-  } catch (error) {
-    return errorResponse(res, 400, error.message, 'ACCOUNT_CREATE_ERROR');
-  }
+function detailHandler(operation, label, errorCode) {
+  return async (req, res, next) => {
+    try {
+      const account = await operation(req.params.id);
+      return account ? successResponse(res, 200, `${label} consultada correctamente`, account) : res.status(404).json({ success: false, message: `${label} no encontrada`, error: errorCode });
+    } catch (error) { return next(error); }
+  };
 }
 
-function getMovements(req, res) {
-  return successResponse(res, 200, 'Movimientos financieros consultados', listMovements());
-}
-
-function createMovementController(req, res) {
-  try {
-    const movement = createMovement(req.body);
-    return successResponse(res, 201, 'Movimiento financiero registrado', movement);
-  } catch (error) {
-    return errorResponse(res, 400, error.message, 'FINANCE_MOVEMENT_ERROR');
-  }
-}
-
-function getPayments(req, res) {
-  return successResponse(res, 200, 'Pagos consultados', listPayments());
-}
-
-function createPaymentController(req, res) {
-  try {
-    const payment = createPayment(req.body);
-    return successResponse(res, 201, 'Pago registrado correctamente', payment);
-  } catch (error) {
-    return errorResponse(res, 400, error.message, 'PAYMENT_CREATE_ERROR');
-  }
+function paymentHandler(operation, label) {
+  return async (req, res, next) => {
+    try { return successResponse(res, 201, `${label} registrado correctamente`, await operation(req.params.id, req.body || {}, req.user.id)); }
+    catch (error) { return next(error); }
+  };
 }
 
 module.exports = {
-  getAccounts,
-  createAccountController,
-  getMovements,
-  createMovementController,
-  getPayments,
-  createPaymentController
+  getReceivables: listHandler(service.listReceivables, 'Cuentas por cobrar'),
+  getReceivable: detailHandler(service.getReceivable, 'Cuenta por cobrar', 'RECEIVABLE_NOT_FOUND'),
+  payReceivable: paymentHandler(service.payReceivable, 'Cobro'),
+  getPayables: listHandler(service.listPayables, 'Cuentas por pagar'),
+  getPayable: detailHandler(service.getPayable, 'Cuenta por pagar', 'PAYABLE_NOT_FOUND'),
+  payPayable: paymentHandler(service.payPayable, 'Pago'),
+  getMovements: listHandler(service.listMovements, 'Movimientos financieros')
 };

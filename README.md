@@ -1,12 +1,12 @@
 # ERP Modular
 
-ERP modular en evolución. El núcleo de identidad, autorización y catálogos, además de Inventario y Ventas, persiste en MongoDB. No implica que todos los módulos visibles en la interfaz ya sean persistentes.
+ERP modular en evolución. El núcleo de identidad, autorización, catálogos, Inventario, Ventas, Compras y Finanzas persiste en MongoDB. No implica que todos los módulos visibles en la interfaz ya sean persistentes.
 
 ## Estado real del repositorio
 
-Persisten en MongoDB: usuarios, roles, categorías, productos, clientes, proveedores, almacenes, existencias, movimientos de inventario, ventas, compras y auditoría. La autenticación consulta el usuario activo y sus permisos actuales en cada petición protegida.
+Persisten en MongoDB: usuarios, roles, categorías, productos, clientes, proveedores, almacenes, existencias, movimientos de inventario, ventas, compras, cuentas por cobrar/pagar, movimientos financieros y auditoría. La autenticación consulta el usuario activo y sus permisos actuales en cada petición protegida.
 
-Siguen siendo prototipos en memoria: cotizaciones y solicitudes de devolución, finanzas, dashboard, reportes, notificaciones, ajustes e integraciones. Las ventas usan folios persistentes y solo descuentan inventario al confirmarse. Las compras usan folios persistentes y solo aumentan inventario al recibirse; el dashboard mantiene indicadores de muestra. No se importan datos demo a producción.
+Siguen siendo prototipos en memoria: cotizaciones y solicitudes de devolución, dashboard, reportes, notificaciones, ajustes e integraciones. Las ventas y compras usan folios persistentes y sus transiciones actualizan inventario y crean sus cuentas financieras relacionadas dentro de la misma transacción. Los pagos persisten sus movimientos y auditoría. El dashboard mantiene indicadores de muestra. No se importan datos demo a producción.
 
 ## Tecnologías y estructura
 
@@ -73,4 +73,4 @@ La suite backend incluye pruebas de esquema/hash y suites de integración que so
 
 ## Limitaciones y siguiente etapa
 
-Los tests de integración que requieren MongoDB se omiten explícitamente cuando falta `TEST_MONGODB_URI`; no cuentan como aprobados. `backend/src/data/` sigue en uso por módulos prototipo, pero Inventario, Ventas y Compras ya no dependen de seeds en memoria. Compras no crea cuentas por pagar; esa integración queda pendiente de Finanzas.
+Los tests de integración que requieren MongoDB se omiten explícitamente cuando falta `TEST_MONGODB_URI`; no cuentan como aprobados. `backend/src/data/` sigue en uso por módulos prototipo, pero Inventario, Ventas, Compras y Finanzas ya no dependen de seeds en memoria. Finanzas no implementa contabilidad fiscal, conciliación bancaria ni reembolsos.

@@ -4,6 +4,7 @@ const Sequence = require('../models/Sequence');
 const { Product, Supplier, Warehouse } = require('../models/catalog');
 const inventoryService = require('./inventoryService');
 const { recordAudit } = require('./auditService');
+const financeService = require('./financeService');
 
 const MAX_PAGE_SIZE = 100;
 
@@ -209,6 +210,7 @@ async function receivePurchase(id, actorId) {
     purchase.status = 'received';
     purchase.receivedAt = new Date();
     await purchase.save({ session });
+    await financeService.createPayableForPurchase({ purchase, userId, session });
     await recordAudit({ userId, action: 'purchase.received', module: 'purchases', recordId: purchase.id, before, after: purchase, session });
     return serializePurchase(purchase);
   });

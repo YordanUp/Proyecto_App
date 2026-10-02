@@ -29,11 +29,11 @@ npm test
 
 ## Persistencia real
 
-Usuarios, roles, catálogos, existencias, movimientos de inventario, ventas, compras y auditoría usan MongoDB. Cotizaciones y solicitudes de devolución, finanzas, dashboard y otros módulos visibles aún son demostrativos; consulta el README raíz antes de usarlos.
+Usuarios, roles, catálogos, existencias, movimientos de inventario, ventas, compras, cuentas por cobrar/pagar, movimientos financieros y auditoría usan MongoDB. Cotizaciones y solicitudes de devolución, dashboard y otros módulos visibles aún son demostrativos; consulta el README raíz antes de usarlos.
 
 Las operaciones de usuario, rol, catálogo, inventario, ventas y compras escriben el cambio y el evento de auditoría en una transacción. Entradas, salidas y ajustes guardan movimiento y existencia juntos. Una transferencia modifica ambas existencias, crea los dos movimientos y audita en la misma transacción. Confirmar o cancelar una venta actualiza su estado, inventario, movimientos y auditoría en una sola transacción. Recibir una compra actualiza el estado, las existencias, los movimientos de recepción y la auditoría en una sola transacción. Se requiere MongoDB Atlas o MongoDB configurado como replica set.
 
-En producción `autoIndex` está desactivado: después de revisar el entorno ejecuta `npm run db:indexes` para crear los índices declarados de catálogos, inventario, ventas, compras y secuencias (no elimina índices existentes).
+En producción `autoIndex` está desactivado: después de revisar el entorno ejecuta `npm run db:indexes` para crear los índices declarados de catálogos, inventario, ventas, compras, cuentas financieras, movimientos y secuencias (no elimina índices existentes).
 
 ## API y seguridad
 
@@ -53,11 +53,19 @@ Endpoints autenticados: `GET /api/inventory`, `GET /api/inventory/movements`, `G
 
 Endpoints autenticados: `GET /api/sales` (busca folio/cliente; filtra `status`, `customerId`, `from`, `to`; pagina y ordena), `GET /api/sales/:id`, `POST /api/sales`, `PUT /api/sales/:id`, `POST /api/sales/:id/confirm` y `POST /api/sales/:id/cancel`. Los borradores requieren `sales.create`; editar requiere `sales.update`; cancelar requiere `sales.cancel`; lectura requiere `sales.read`. No existe `sales.confirm` en el catálogo de permisos, por lo que confirmar usa el permiso existente `sales.create`. El servidor calcula precios, impuestos y totales; la UI no establece el estado ni los totales finales.
 
-Las cotizaciones y solicitudes de devolución anteriores siguen en memoria y fuera de esta etapa; ya no se muestran como ventas persistentes en la pantalla ni se usan para crear ventas. No hay todavía cuentas por cobrar: la integración financiera queda pendiente de la fase de Finanzas.
+Las cotizaciones y solicitudes de devolución anteriores siguen en memoria y no se usan para crear ventas persistentes.
 
 ## Compras persistentes
 
-`Purchase` guarda proveedor, líneas con snapshots de producto/SKU/costo, impuestos, totales, almacén, usuario creador, estado y fechas. El folio `COM-AAAA-######` usa una secuencia anual atómica y un índice único. Crear/editar un borrador no cambia existencias. El flujo permite `draft → ordered → received` y cancelar solo desde `draft` u `ordered`. Recibir una compra ordenada valida proveedor, productos y almacenes activos; incrementa inventario, conserva `reservedQuantity`, genera un movimiento `PURCHASE` por partida y registra auditoría, junto con el cambio de estado, en una sola transacción. La recepción repetida, la cancelación de recibidas y las transiciones inválidas se rechazan. No se revierten compras recibidas ni se crean cuentas por pagar; una devolución y Finanzas requieren flujos explícitos futuros.
+`Purchase` guarda proveedor, líneas con snapshots de producto/SKU/costo, impuestos, totales, almacén, usuario creador, estado y fechas. El folio `COM-AAAA-######` usa una secuencia anual atómica y un índice único. Crear/editar un borrador no cambia existencias. El flujo permite `draft → ordered → received` y cancelar solo desde `draft` u `ordered`. Recibir una compra ordenada valida proveedor, productos y almacenes activos; incrementa inventario, conserva `reservedQuantity`, genera un movimiento `PURCHASE`, crea la CxP y registra auditoría en una sola transacción. La recepción repetida y cancelar compras recibidas se rechazan.
+
+## Finanzas persistentes
+
+`AccountsReceivable` y `AccountsPayable` se crean al confirmar ventas y recibir compras, respectivamente, dentro de esas mismas transacciones; cada referencia de origen tiene índice único. Los folios `CXC-AAAA-######` y `CXP-AAAA-######` usan secuencias anuales atómicas. Los pagos parciales/completos validan saldo y actualizan la cuenta, crean un `FinancialMovement` inmutable y registran auditoría en una transacción. Los movimientos de cobro son `RECEIVABLE_PAYMENT/IN`; los pagos a proveedor son `PAYABLE_PAYMENT/OUT`. El estado se deriva del saldo. No se permiten sobrepagos ni saldos negativos.
+
+Endpoints autenticados: `GET /api/finance/receivables`, `GET /api/finance/receivables/:id`, `POST /api/finance/receivables/:id/payments`, equivalentes `/payables`, y `GET /api/finance/movements`. Los listados ofrecen búsqueda, estado, fechas, entidad relacionada, orden y paginación. `GET /api/finance/payments` permanece como alias de solo lectura del registro de movimientos. Las antiguas rutas genéricas de cuentas y escrituras financieras de demostración se retiraron; `src/data/finance.js` se eliminó y sus datos demo no se importaron.
+
+Permisos de lectura: `finance.read`; registrar cobros requiere `finance.receive_payment`, y pagos a proveedores requieren `finance.make_payment`. Estos dos permisos son nuevos y no se asignan automáticamente a roles ya almacenados; deben agregarse explícitamente a los roles autorizados. Cancelar una venta confirmada cancela su CxC si no tiene pagos. Si ya hay pagos, la cancelación se rechaza para preservar el historial y el inventario hasta que exista un flujo explícito de reembolso. No se cancelan CxP ligadas a compras recibidas. No se implementan cuentas contables, impuestos fiscales, conciliación ni reembolsos.
 
 Endpoints autenticados: `GET /api/purchases` (búsqueda por folio/proveedor, filtros, paginación y orden), `GET /api/purchases/:id`, `POST /api/purchases`, `PUT/PATCH /api/purchases/:id`, `POST /api/purchases/:id/order`, `POST /api/purchases/:id/receive` y `POST /api/purchases/:id/cancel`. Los permisos son `purchases.read`, `purchases.create`, `purchases.update`, `purchases.approve`, `purchases.receive` y `purchases.cancel`. `GET/POST /api/purchases/orders` se conservan como alias compatibles del mismo recurso persistente; no crean una colección separada. El archivo antiguo `src/data/purchases.js` queda sin referencias: sus datos de demostración no se migran ni se sirven por la API.
 
@@ -75,4 +83,4 @@ Endpoints web: `/verify-email?token=...` y `/login`. La app móvil consume el en
 
 ## Pruebas
 
-`npm test` ejecuta validaciones de modelos/hash, inventario, ventas y unidades de tokens/plantillas de correo. `persistence.integration.test.js` cubre auth, catálogos, auditoría, inventario y ventas; `purchases.integration.test.js` cubre ciclo de compra, RBAC, folios, recepción, rollback y concurrencia. Ambas cargan `backend/.env`, requieren `TEST_MONGODB_URI` compatible con transacciones y crean/eliminan únicamente bases aisladas de pruebas; no usan `MONGODB_URI` para pruebas destructivas. La base generada debe respetar el límite de nombre de MongoDB.
+`npm test` ejecuta validaciones de modelos/hash, inventario, ventas y unidades de tokens/plantillas de correo. Las suites `persistence.integration.test.js`, `purchases.integration.test.js` y `finance.integration.test.js` cubren el núcleo, transacciones, RBAC, movimientos, pagos y concurrencia. Cargan `backend/.env`, requieren `TEST_MONGODB_URI` compatible con transacciones y crean/eliminan únicamente bases aisladas de pruebas; no usan `MONGODB_URI` para pruebas destructivas.

@@ -9,6 +9,9 @@ require('../src/models/InventoryStock');
 require('../src/models/InventoryMovement');
 require('../src/models/Sale');
 require('../src/models/Purchase');
+require('../src/models/AccountsReceivable');
+require('../src/models/AccountsPayable');
+require('../src/models/FinancialMovement');
 require('../src/models/Sequence');
 
 async function main() {

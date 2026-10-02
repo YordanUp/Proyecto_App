@@ -4,6 +4,7 @@ const Sequence = require('../models/Sequence');
 const { Client, Product, Warehouse } = require('../models/catalog');
 const inventoryService = require('./inventoryService');
 const { recordAudit } = require('./auditService');
+const financeService = require('./financeService');
 
 const MAX_PAGE_SIZE = 100;
 
@@ -211,6 +212,7 @@ async function confirmSale(id, actorId) {
     sale.status = 'confirmed';
     sale.confirmedAt = new Date();
     await sale.save({ session });
+    await financeService.createReceivableForSale({ sale, userId, session });
     await recordAudit({ userId, action: 'sale.confirmed', module: 'sales', recordId: sale.id, before, after: sale, session });
     return serializeSale(sale);
   });
@@ -225,6 +227,7 @@ async function cancelSale(id, actorId) {
     if (!['draft', 'confirmed'].includes(sale.status)) throw salesError(409, 'INVALID_SALE_TRANSITION', 'La venta ya fue cancelada y no admite otra transición');
     const before = { status: sale.status, confirmedAt: sale.confirmedAt, cancelledAt: sale.cancelledAt };
     if (sale.status === 'confirmed') {
+      await financeService.cancelReceivableForSale({ saleId: sale._id, userId, session });
       for (const item of sale.items) {
         await inventoryService.restoreForSale({ productId: item.product, warehouseId: item.warehouse, quantity: item.quantity, saleId: sale.id, folio: sale.folio, userId, session });
       }
