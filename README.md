@@ -4,9 +4,9 @@ ERP modular en evolución. El núcleo de identidad, autorización y catálogos, 
 
 ## Estado real del repositorio
 
-Persisten en MongoDB: usuarios, roles, categorías, productos, clientes, proveedores, almacenes, existencias, movimientos de inventario, ventas y auditoría. La autenticación consulta el usuario activo y sus permisos actuales en cada petición protegida.
+Persisten en MongoDB: usuarios, roles, categorías, productos, clientes, proveedores, almacenes, existencias, movimientos de inventario, ventas, compras y auditoría. La autenticación consulta el usuario activo y sus permisos actuales en cada petición protegida.
 
-Siguen siendo prototipos en memoria: cotizaciones y solicitudes de devolución, compras, finanzas, dashboard, reportes, notificaciones, ajustes e integraciones. Las ventas usan folios persistentes y solo descuentan inventario al confirmarse; el dashboard mantiene indicadores de muestra. No se importan datos demo a producción.
+Siguen siendo prototipos en memoria: cotizaciones y solicitudes de devolución, finanzas, dashboard, reportes, notificaciones, ajustes e integraciones. Las ventas usan folios persistentes y solo descuentan inventario al confirmarse. Las compras usan folios persistentes y solo aumentan inventario al recibirse; el dashboard mantiene indicadores de muestra. No se importan datos demo a producción.
 
 ## Tecnologías y estructura
 
@@ -59,7 +59,7 @@ npm test
 npm run build
 ```
 
-La suite backend incluye pruebas de esquema/hash y una suite de integración que solo se ejecuta cuando `TEST_MONGODB_URI` apunta a una instancia de pruebas desechable compatible con transacciones. Aísla y elimina únicamente la base con nombre generado por la prueba. No uses una URI de producción. Sin esa variable, las pruebas de integración se reportan como omitidas, no aprobadas.
+La suite backend incluye pruebas de esquema/hash y suites de integración que solo se ejecutan cuando `TEST_MONGODB_URI` apunta a una instancia de pruebas desechable compatible con transacciones. Cada suite aísla y elimina únicamente una base con nombre generado por la prueba. No uses una URI de producción. Sin esa variable, las pruebas de integración se reportan como omitidas, no aprobadas.
 
 ## Autenticación y API
 
@@ -73,4 +73,4 @@ La suite backend incluye pruebas de esquema/hash y una suite de integración que
 
 ## Limitaciones y siguiente etapa
 
-Los tests de integración que requieren MongoDB se omiten explícitamente cuando falta `TEST_MONGODB_URI`; no cuentan como aprobados. `backend/src/data/` sigue en uso por módulos prototipo, pero Inventario y Ventas ya no dependen de seeds en memoria. El siguiente bloque operativo será Compras, después de validar las ventas en pruebas operativas.
+Los tests de integración que requieren MongoDB se omiten explícitamente cuando falta `TEST_MONGODB_URI`; no cuentan como aprobados. `backend/src/data/` sigue en uso por módulos prototipo, pero Inventario, Ventas y Compras ya no dependen de seeds en memoria. Compras no crea cuentas por pagar; esa integración queda pendiente de Finanzas.

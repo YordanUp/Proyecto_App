@@ -11,7 +11,7 @@ const sections = [
     items: [
       { to: '/inventory', label: 'Inventario', icon: '▤' },
       { to: '/sales', label: 'Ventas', icon: '↗' },
-      { to: '/purchases', label: 'Compras', icon: '⇣', demo: true },
+      { to: '/purchases', label: 'Compras', icon: '⇣' },
       { to: '/finance', label: 'Finanzas', icon: '◉', demo: true }
     ]
   },
@@ -61,7 +61,7 @@ Object.assign(pageTitles, {
 const pageDescriptions = {
   '/inventory': 'Existencias y movimientos persistidos por almacén.',
   '/sales': 'Ventas persistentes con confirmación y movimientos de inventario transaccionales.',
-  '/purchases': 'Consulta demostrativa de órdenes y compras.',
+  '/purchases': 'Compras persistentes con recepción e impacto transaccional en inventario.',
   '/finance': 'Consulta demostrativa de cuentas y pagos.',
   '/products': 'Catálogo persistente de productos.',
   '/clients': 'Catálogos persistentes de clientes y proveedores.',
@@ -75,7 +75,7 @@ const pageDescriptions = {
   '/settings': 'Preferencias de muestra, aún no persistidas.'
 };
 
-const demoPaths = new Set(['/purchases', '/finance', '/reports', '/notifications', '/integrations', '/settings']);
+const demoPaths = new Set(['/finance', '/reports', '/notifications', '/integrations', '/settings']);
 
 function initials(name = '') {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'U';
