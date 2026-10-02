@@ -8,6 +8,7 @@ require('../src/models/catalog');
 require('../src/models/InventoryStock');
 require('../src/models/InventoryMovement');
 require('../src/models/Sale');
+require('../src/models/Purchase');
 require('../src/models/Sequence');
 
 async function main() {

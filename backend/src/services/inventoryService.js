@@ -300,6 +300,29 @@ async function restoreForSale({ productId: rawProductId, warehouseId: rawWarehou
   return { movement, stock: after };
 }
 
+async function receiveForPurchase({ productId: rawProductId, warehouseId: rawWarehouseId, quantity: rawQuantity, purchaseId, folio, userId: rawUserId, session }) {
+  assertTransactionSession(session);
+  const productId = idValue(rawProductId, 'productId');
+  const warehouseId = idValue(rawWarehouseId, 'warehouseId');
+  const userId = idValue(rawUserId, 'usuario');
+  const quantity = positiveQuantity(rawQuantity);
+  const { product, warehouse } = await activeReferences(productId, warehouseId, session);
+  await ensureStock(product, warehouse, session);
+  const before = await InventoryStock.findOne({ productId, warehouseId }).session(session);
+  const after = await InventoryStock.findOneAndUpdate(
+    { productId, warehouseId },
+    { $inc: { quantity }, $set: { minimumStock: product.minStock || 0 } },
+    { new: true, runValidators: true, session }
+  );
+  if (!before || !after) throw inventoryError(409, 'INVENTORY_CONFLICT', 'No fue posible registrar la recepción de compra');
+  const movement = await createMovement({
+    productId, warehouseId, type: 'PURCHASE', quantity, previousQuantity: before.quantity, newQuantity: after.quantity,
+    reason: `Recepción de compra ${folio}`, referenceType: 'purchase', referenceId: String(purchaseId), userId, session
+  });
+  await auditMovement({ userId, action: 'inventory.purchase', movement, stockBefore: before, stockAfter: after, session });
+  return { movement, stock: after };
+}
+
 function dateFilter(query) {
   const filter = {};
   if (query.from || query.to) {
@@ -369,4 +392,4 @@ async function listMovements(query = {}) {
   return { items: movements.map(serializeMovement), pagination: { page, limit, total, pages: Math.ceil(total / limit) } };
 }
 
-module.exports = { listInventory, listWarehouses, listMovements, addEntry, addExit, adjustStock, transferStock, consumeForSale, restoreForSale, inventoryError };
+module.exports = { listInventory, listWarehouses, listMovements, addEntry, addExit, adjustStock, transferStock, consumeForSale, restoreForSale, receiveForPurchase, inventoryError };
