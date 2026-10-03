@@ -10,6 +10,12 @@ function renderWithRouter(initialEntries) {
   );
 }
 
+const adminPermissions = ['dashboard.read', 'products.read', 'products.create', 'products.update', 'inventory.read', 'sales.read', 'purchases.read', 'finance.read', 'reports.read', 'users.read', 'roles.read', 'clients.read', 'suppliers.read', 'categories.read', 'warehouses.read', 'settings.read', 'notifications.read', 'integrations.read', 'audit.read'];
+function authenticate(permissions = adminPermissions) {
+  localStorage.setItem('erp_token', String('fake-token'));
+  localStorage.setItem('erp_user', JSON.stringify({ id: 'test-user', name: 'Test User', permissions }));
+}
+
 describe('App routing and auth flow', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -24,7 +30,7 @@ describe('App routing and auth flow', () => {
   });
 
   it('shows dashboard when a valid token exists', async () => {
-    localStorage.setItem('erp_token', 'fake-token');
+    authenticate();
     renderWithRouter(['/']);
 
     await waitFor(() => {
@@ -33,7 +39,7 @@ describe('App routing and auth flow', () => {
   });
 
   it('allows access to the products route when authenticated', async () => {
-    localStorage.setItem('erp_token', 'fake-token');
+    authenticate();
     renderWithRouter(['/products']);
 
     await waitFor(() => {
@@ -42,7 +48,7 @@ describe('App routing and auth flow', () => {
   });
 
   it('allows access to the inventory route when authenticated', async () => {
-    localStorage.setItem('erp_token', 'fake-token');
+    authenticate();
     renderWithRouter(['/inventory']);
 
     await waitFor(() => {
@@ -51,7 +57,7 @@ describe('App routing and auth flow', () => {
   });
 
   it('allows access to the sales route when authenticated', async () => {
-    localStorage.setItem('erp_token', 'fake-token');
+    authenticate();
     renderWithRouter(['/sales']);
 
     await waitFor(() => {
@@ -60,7 +66,7 @@ describe('App routing and auth flow', () => {
   });
 
   it('allows access to the purchases route when authenticated', async () => {
-    localStorage.setItem('erp_token', 'fake-token');
+    authenticate();
     renderWithRouter(['/purchases']);
 
     await waitFor(() => {
@@ -69,7 +75,7 @@ describe('App routing and auth flow', () => {
   });
 
   it('allows access to the finance route when authenticated', async () => {
-    localStorage.setItem('erp_token', 'fake-token');
+    authenticate();
     renderWithRouter(['/finance']);
 
     await waitFor(() => {
@@ -78,7 +84,7 @@ describe('App routing and auth flow', () => {
   });
 
   it('allows access to the reports route when authenticated', async () => {
-    localStorage.setItem('erp_token', 'fake-token');
+    authenticate();
     renderWithRouter(['/reports']);
 
     await waitFor(() => {
@@ -87,7 +93,7 @@ describe('App routing and auth flow', () => {
   });
 
   it('allows access to the users route when authenticated', async () => {
-    localStorage.setItem('erp_token', 'fake-token');
+    authenticate();
     renderWithRouter(['/users']);
 
     await waitFor(() => {
@@ -96,7 +102,7 @@ describe('App routing and auth flow', () => {
   });
 
   it('allows access to the roles route when authenticated', async () => {
-    localStorage.setItem('erp_token', 'fake-token');
+    authenticate();
     renderWithRouter(['/roles']);
 
     await waitFor(() => {
@@ -105,7 +111,7 @@ describe('App routing and auth flow', () => {
   });
 
   it('allows access to the clients route when authenticated', async () => {
-    localStorage.setItem('erp_token', 'fake-token');
+    authenticate();
     renderWithRouter(['/clients']);
 
     await waitFor(() => {
@@ -114,7 +120,7 @@ describe('App routing and auth flow', () => {
   });
 
   it('allows access to the categories route when authenticated', async () => {
-    localStorage.setItem('erp_token', 'fake-token');
+    authenticate();
     renderWithRouter(['/categories']);
 
     await waitFor(() => {
@@ -123,7 +129,7 @@ describe('App routing and auth flow', () => {
   });
 
   it('allows access to the settings route when authenticated', async () => {
-    localStorage.setItem('erp_token', 'fake-token');
+    authenticate();
     renderWithRouter(['/settings']);
 
     await waitFor(() => {
@@ -132,7 +138,7 @@ describe('App routing and auth flow', () => {
   });
 
   it('allows access to the notifications route when authenticated', async () => {
-    localStorage.setItem('erp_token', 'fake-token');
+    authenticate();
     renderWithRouter(['/notifications']);
 
     await waitFor(() => {
@@ -141,7 +147,7 @@ describe('App routing and auth flow', () => {
   });
 
   it('allows access to the audit route when authenticated', async () => {
-    localStorage.setItem('erp_token', 'fake-token');
+    authenticate();
     renderWithRouter(['/audit']);
 
     await waitFor(() => {
@@ -150,11 +156,27 @@ describe('App routing and auth flow', () => {
   });
 
   it('allows access to the integrations route when authenticated', async () => {
-    localStorage.setItem('erp_token', 'fake-token');
+    authenticate();
     renderWithRouter(['/integrations']);
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /integraciones del sistema/i })).toBeInTheDocument();
     });
+  });
+
+  it('WEB-RBAC-001: ventas ve sus módulos sin Administración, Finanzas o Compras', async () => {
+    authenticate(['dashboard.read', 'sales.read', 'products.read', 'clients.read', 'categories.read', 'inventory.read', 'reports.read']);
+    renderWithRouter(['/']);
+    expect(await screen.findByRole('heading', { name: /dashboard ERP/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Ventas' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /usuarios/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Finanzas' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Compras' })).not.toBeInTheDocument();
+  });
+
+  it('WEB-RBAC-002: bloquea la ruta directa de Finanzas sin finance.read', async () => {
+    authenticate(['dashboard.read', 'sales.read']);
+    renderWithRouter(['/finance']);
+    expect(await screen.findByRole('alert')).toHaveTextContent('No tienes permiso para acceder a este módulo.');
   });
 });

@@ -4,9 +4,10 @@ import { apiRequest } from '../../services/api';
 
 vi.mock('../../services/api', () => ({ apiRequest: vi.fn() }));
 
-const roles = [{ id: 'role-1', name: 'operator', description: 'Operador' }];
+const roles = [{ id: 'role-1', name: 'ventas', description: 'Ventas', isSystem: true }, { id: 'custom-role', name: 'operator', description: 'Operador', isSystem: false }];
 const makeSession = permissions => ({ token: 'test-token', user: { id: 'admin-1', permissions } });
-const user = { id: 'user-1', name: 'Ana Pérez', email: 'ana@example.com', role: 'operator', status: 'active', emailVerified: false, permissions: ['products.read'] };
+const user = { id: 'user-1', name: 'Ana Pérez', email: 'ana@example.com', role: 'ventas', status: 'active', emailVerified: false, permissions: ['products.read'] };
+const createPermissions = ['users.read', 'users.create', 'users.assign_role', 'roles.read'];
 
 function mockInitialLoad(users = []) {
   apiRequest.mockImplementation(path => {
@@ -21,7 +22,7 @@ beforeEach(() => { apiRequest.mockReset(); });
 describe('UsersPage user management', () => {
   it('USR-UI-001: muestra Nuevo usuario a quien tiene users.create', async () => {
     mockInitialLoad();
-    render(<UsersPage session={makeSession(['users.read', 'users.create'])} />);
+    render(<UsersPage session={makeSession(createPermissions)} />);
     expect(await screen.findByRole('button', { name: /nuevo usuario/i })).toBeInTheDocument();
   });
 
@@ -34,7 +35,7 @@ describe('UsersPage user management', () => {
 
   it('USR-UI-003: valida nombre y email requeridos/formato', async () => {
     mockInitialLoad();
-    render(<UsersPage session={makeSession(['users.read', 'users.create'])} />);
+    render(<UsersPage session={makeSession(createPermissions)} />);
     fireEvent.click(await screen.findByRole('button', { name: /nuevo usuario/i }));
     const dialog = screen.getByRole('dialog');
     fireEvent.change(within(dialog).getByLabelText('Email'), { target: { value: 'email-invalido' } });
@@ -52,7 +53,7 @@ describe('UsersPage user management', () => {
 
   it('USR-UI-004: rechaza contraseña temporal menor a 12 caracteres', async () => {
     mockInitialLoad();
-    render(<UsersPage session={makeSession(['users.read', 'users.create'])} />);
+    render(<UsersPage session={makeSession(createPermissions)} />);
     fireEvent.click(await screen.findByRole('button', { name: /nuevo usuario/i }));
     const dialog = screen.getByRole('dialog');
     fireEvent.change(within(dialog).getByLabelText('Nombre completo'), { target: { value: 'Nuevo Usuario' } });
@@ -66,9 +67,9 @@ describe('UsersPage user management', () => {
 
   it('USR-UI-005: carga los roles desde el endpoint real', async () => {
     mockInitialLoad();
-    render(<UsersPage session={makeSession(['users.read', 'users.create'])} />);
+    render(<UsersPage session={makeSession(createPermissions)} />);
     fireEvent.click(await screen.findByRole('button', { name: /nuevo usuario/i }));
-    expect(await within(screen.getByRole('dialog')).findByRole('option', { name: 'Operador' })).toBeInTheDocument();
+    expect(await within(screen.getByRole('dialog')).findByRole('option', { name: 'Ventas' })).toBeInTheDocument();
     expect(apiRequest).toHaveBeenCalledWith('/api/roles');
   });
 
@@ -80,7 +81,7 @@ describe('UsersPage user management', () => {
       if (path === '/api/roles') return Promise.resolve({ data: roles });
       return Promise.reject(new Error(`Unexpected request: ${path}`));
     });
-    render(<UsersPage session={makeSession(['users.read', 'users.create'])} />);
+    render(<UsersPage session={makeSession(createPermissions)} />);
     fireEvent.click(await screen.findByRole('button', { name: /nuevo usuario/i }));
     const dialog = screen.getByRole('dialog');
     fireEvent.change(within(dialog).getByLabelText('Nombre completo'), { target: { value: 'Ana Pérez' } });
@@ -98,7 +99,7 @@ describe('UsersPage user management', () => {
     apiRequest.mockImplementation((path, options = {}) => path === '/api/roles' ? Promise.resolve({ data: roles })
       : options.method === 'POST' ? Promise.resolve({ data: { emailVerification: 'sent' } })
         : Promise.resolve({ data: [] }));
-    render(<UsersPage session={makeSession(['users.read', 'users.create'])} />);
+    render(<UsersPage session={makeSession(createPermissions)} />);
     fireEvent.click(await screen.findByRole('button', { name: /nuevo usuario/i }));
     const dialog = screen.getByRole('dialog');
     fireEvent.change(within(dialog).getByLabelText('Nombre completo'), { target: { value: 'Nuevo Usuario' } });
@@ -114,7 +115,7 @@ describe('UsersPage user management', () => {
     apiRequest.mockImplementation((path, options = {}) => path === '/api/roles' ? Promise.resolve({ data: roles })
       : options.method === 'POST' ? Promise.resolve({ data: { emailVerification: 'pending' } })
         : Promise.resolve({ data: [] }));
-    render(<UsersPage session={makeSession(['users.read', 'users.create'])} />);
+    render(<UsersPage session={makeSession(createPermissions)} />);
     fireEvent.click(await screen.findByRole('button', { name: /nuevo usuario/i }));
     const dialog = screen.getByRole('dialog');
     fireEvent.change(within(dialog).getByLabelText('Nombre completo'), { target: { value: 'Nuevo Usuario' } });
@@ -148,5 +149,13 @@ describe('UsersPage user management', () => {
 
     rerender(<UsersPage session={makeSession(['users.read', 'users.update', 'users.assign_role', 'roles.read'])} />);
     expect(await screen.findByRole('combobox', { name: 'Rol de Ana Pérez' })).toBeInTheDocument();
+  });
+
+  it('USR-UI-011: ofrece roles base y excluye roles personalizados al asignar', async () => {
+    mockInitialLoad([user]);
+    render(<UsersPage session={makeSession(['users.read', 'users.update', 'users.assign_role', 'roles.read'])} />);
+    const roleSelect = await screen.findByRole('combobox', { name: 'Rol de Ana Pérez' });
+    expect(within(roleSelect).getByRole('option', { name: 'Ventas' })).toBeInTheDocument();
+    expect(within(roleSelect).queryByRole('option', { name: 'Operador' })).not.toBeInTheDocument();
   });
 });

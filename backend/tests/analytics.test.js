@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { utcRanges } = require('../src/services/dashboardService');
+const { utcRanges, restrictDashboard } = require('../src/services/dashboardService');
 const { buildFilter, csvCell } = require('../src/services/reportService');
 
 test('Dashboard periods use UTC day and month boundaries', () => {
@@ -9,6 +9,16 @@ test('Dashboard periods use UTC day and month boundaries', () => {
   assert.equal(ranges.today.$lt.toISOString(), '2026-03-02T00:00:00.000Z');
   assert.equal(ranges.month.$gte.toISOString(), '2026-03-01T00:00:00.000Z');
   assert.equal(ranges.month.$lt.toISOString(), '2026-04-01T00:00:00.000Z');
+});
+
+test('Dashboard devuelve solo los datos que corresponden a permisos de lectura', () => {
+  const dashboard = { metrics: { salesToday: 10, pendingPurchases: 3, lowStockCount: 2, receivables: { balance: 4 } }, recentSales: [1], recentFinancialMovements: [2], stockAlerts: [3] };
+  const salesView = restrictDashboard(dashboard, ['sales.read']);
+  assert.equal(salesView.metrics.salesToday, 10);
+  assert.equal('receivables' in salesView.metrics, false);
+  assert.deepEqual(salesView.recentFinancialMovements, []);
+  assert.deepEqual(salesView.stockAlerts, []);
+  assert.equal(dashboard.metrics.receivables.balance, 4);
 });
 
 test('Report filters reject invalid dates and unsupported combinations', async () => {

@@ -16,7 +16,7 @@ describe('DashboardPage', () => {
       recentFinancialMovements: [{ id: 'movement-1', direction: 'IN', referenceId: { folio: 'V-001' }, createdAt: '2026-10-01T10:00:00Z', amount: 20 }],
       stockAlerts: [{ _id: 'stock-1', product: { name: 'Producto real', code: 'P-1' }, warehouse: { name: 'Central' }, quantity: 1, reservedQuantity: 0, minimumStock: 2 }]
     } });
-    render(<MemoryRouter><DashboardPage session={{ token: 'session-token', user: { name: 'Ada' } }} /></MemoryRouter>);
+    render(<MemoryRouter><DashboardPage session={{ token: 'session-token', user: { name: 'Ada', permissions: ['sales.read', 'purchases.read', 'inventory.read', 'finance.read', 'reports.read', 'products.read'] } }} /></MemoryRouter>);
     expect(await screen.findByText('Ventas de hoy')).toBeInTheDocument();
     expect(screen.getByText('Cliente real')).toBeInTheDocument();
     expect(screen.getByText('Producto real')).toBeInTheDocument();
@@ -27,13 +27,26 @@ describe('DashboardPage', () => {
   it('shows loading, empty and error states', async () => {
     let resolve;
     apiRequest.mockReturnValueOnce(new Promise(done => { resolve = done; }));
-    const { rerender } = render(<MemoryRouter><DashboardPage session={{ token: 'session-token' }} /></MemoryRouter>);
+    const permissions = ['sales.read', 'purchases.read', 'inventory.read', 'finance.read'];
+    const { rerender } = render(<MemoryRouter><DashboardPage session={{ token: 'session-token', user: { permissions } }} /></MemoryRouter>);
     expect(screen.getByRole('status')).toHaveTextContent('Cargando indicadores');
     resolve({ data: { metrics: {}, recentSales: [], recentFinancialMovements: [], stockAlerts: [] } });
     expect(await screen.findByText('Sin ventas confirmadas.')).toBeInTheDocument();
 
     apiRequest.mockRejectedValueOnce(new Error('API no disponible'));
-    rerender(<MemoryRouter><DashboardPage session={{ token: 'another-token' }} /></MemoryRouter>);
+    rerender(<MemoryRouter><DashboardPage session={{ token: 'another-token', user: { permissions } }} /></MemoryRouter>);
     expect(await screen.findByRole('alert')).toHaveTextContent('API no disponible');
+  });
+
+  it('WEB-RBAC-003: oculta métricas y listas fuera de los permisos del usuario', async () => {
+    apiRequest.mockResolvedValue({ data: {
+      metrics: { salesToday: 100, receivables: { balance: 80 }, lowStockCount: 3 },
+      recentSales: [], recentFinancialMovements: [{ id: 'movement-1' }], stockAlerts: [{ _id: 'stock-1' }]
+    } });
+    render(<MemoryRouter><DashboardPage session={{ token: 'sales-token', user: { permissions: ['sales.read'] } }} /></MemoryRouter>);
+    expect(await screen.findByText('Ventas de hoy')).toBeInTheDocument();
+    expect(screen.queryByText('Cuentas por cobrar')).not.toBeInTheDocument();
+    expect(screen.queryByText('Movimientos financieros recientes')).not.toBeInTheDocument();
+    expect(screen.queryByText('Alertas de inventario')).not.toBeInTheDocument();
   });
 });

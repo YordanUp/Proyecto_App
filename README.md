@@ -79,6 +79,12 @@ La suite backend incluye pruebas de esquema/hash y suites de integración que so
 - Los filtros de cliente/proveedor/producto/almacén aceptan ObjectId o nombre. Las fechas `from`/`to` aceptan `YYYY-MM-DD` (UTC) o ISO datetime.
 - El listado/creación heredado de “reportes generados” en memoria fue retirado; las notificaciones siguen siendo un prototipo independiente. `reportSeed` permanece como fixture sin uso productivo.
 
+### Roles operativos
+
+- `backend/src/services/permissions.js` es la fuente de permisos; la matriz exacta para ventas, compras, almacén, finanzas y supervisor está en [docs/roles-operativos.md](docs/roles-operativos.md).
+- Ejecuta `cd backend; npm run db:seed-operational-roles -- --dry-run` para revisar y `--apply` para sincronizar roles base. El comando no cambia admin ni usuarios, aborta si hay colisiones con roles personalizados y registra los cambios en auditoría dentro de una transacción.
+- Web oculta navegación y bloquea rutas sin el permiso de lectura correspondiente. El backend verifica cada petición. La pantalla de roles lista los permisos actuales del servidor.
+
 ## Limitaciones y siguiente etapa
 
 Los tests de integración que requieren MongoDB se omiten explícitamente cuando falta `TEST_MONGODB_URI`; no cuentan como aprobados. `backend/src/data/` sigue en uso por módulos prototipo, pero Inventario, Ventas, Compras y Finanzas ya no dependen de seeds en memoria. Finanzas no implementa contabilidad fiscal, conciliación bancaria ni reembolsos.
