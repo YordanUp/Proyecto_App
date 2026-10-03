@@ -14,6 +14,30 @@ function utcRanges(now = new Date()) {
   return { today: { $gte: todayFrom, $lt: tomorrow }, month: { $gte: monthFrom, $lt: nextMonth } };
 }
 
+function restrictDashboard(data, permissions = []) {
+  const allowed = new Set(permissions);
+  const result = { ...data, metrics: { ...data.metrics } };
+  if (!allowed.has('sales.read')) {
+    for (const key of ['salesToday', 'salesMonth', 'salesCountToday', 'confirmedSalesCount']) delete result.metrics[key];
+    result.recentSales = [];
+  }
+  if (!allowed.has('purchases.read')) {
+    delete result.metrics.pendingPurchases;
+    delete result.metrics.receivedPurchasesMonth;
+  }
+  if (!allowed.has('inventory.read')) {
+    delete result.metrics.lowStockCount;
+    delete result.metrics.outOfStockCount;
+    result.stockAlerts = [];
+  }
+  if (!allowed.has('finance.read')) {
+    delete result.metrics.receivables;
+    delete result.metrics.payables;
+    result.recentFinancialMovements = [];
+  }
+  return result;
+}
+
 async function getMetrics(now = new Date()) {
   const ranges = utcRanges(now);
   const [sales, purchaseMetrics, inventoryMetrics, receivables, payables, recentMovements, recentSales] = await Promise.all([
@@ -64,4 +88,4 @@ async function getMetrics(now = new Date()) {
   };
 }
 
-module.exports = { getMetrics, utcRanges };
+module.exports = { getMetrics, utcRanges, restrictDashboard };
