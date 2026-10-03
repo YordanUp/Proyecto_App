@@ -47,6 +47,8 @@ El servidor calcula y valida los importes definitivos. Confirmar una venta descu
 - El JWT se guarda únicamente en SecureStore; los errores `401` limpian la sesión local.
 - El login identifica `EMAIL_NOT_VERIFIED` y permite reenviar la verificación.
 - Pestañas, formularios y acciones se filtran con los permisos de `/api/auth/me`; el backend conserva la autorización definitiva.
+- Los catálogos muestran el estado del registro; `*.delete` habilita desactivar por `DELETE`, y `*.update` habilita reactivar por `PUT` con `{ status: "active" }`.
+- El listado vuelve a consultar el API al enfocarse y al hacer pull-to-refresh. Después de cambiar un estado, al regresar del detalle se vuelve a cargar el listado.
 - Una lectura GET puede reintentarse una sola vez tras error de conexión o HTTP 502/503/504. Operaciones POST/PUT nunca se reintentan automáticamente.
 - La app espera hasta 60 segundos por respuesta y presenta aviso si Render está iniciando. No encola operaciones offline.
 - El endpoint actual autoriza transferencia con `inventory.adjust`; Mobile sigue la autorización que realmente aplica el backend.
@@ -61,7 +63,20 @@ npx.cmd expo-doctor
 npx.cmd expo start --tunnel
 ```
 
-La suite cubre auth/JWT, errores, retries de lectura y mapeos de endpoints operativos. La validación contra una cuenta Render real requiere una cuenta de pruebas autorizada. Las pruebas unitarias no sustituyen esa comprobación entre dispositivos.
+La suite cubre auth/JWT, errores, retries de lectura, mapeos operativos y estado RBAC de catálogos. La validación contra una cuenta Render real requiere una cuenta de pruebas autorizada. Las pruebas unitarias no sustituyen esa comprobación entre dispositivos.
+
+## Validación manual de sincronización Web ↔ Mobile
+
+Usa una cuenta de pruebas autorizada con permisos de lectura/escritura y registros identificables por nombre o SKU. Web y Mobile deben apuntar a la misma API configurada en `VITE_API_URL` y `EXPO_PUBLIC_API_URL`.
+
+1. Crear un producto en Web y confirmar que aparece en Catálogos → Productos en Mobile.
+2. Crear un proveedor en Mobile y confirmar que aparece en Web → Clientes y proveedores → Proveedores.
+3. Editar un cliente en Web y confirmar que el valor actualizado aparece al volver a enfocar su catálogo Mobile.
+4. Crear una categoría en Mobile y confirmar que aparece en Web → Categorías y en el selector de categoría de Productos.
+5. Desactivar un producto en Web y confirmar que Mobile muestra `Inactivo` y oculta las acciones no autorizadas.
+6. Reactivar el mismo producto en Mobile y confirmar que Web muestra `Activo` al volver a consultar.
+
+No se ejecuta esta secuencia contra producción durante validaciones automatizadas. Registrar el usuario de prueba, hora y resultados sin incluir tokens ni credenciales.
 
 ## APK
 

@@ -5,6 +5,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import { userMessage } from '../../../../api/client';
 import { fetchCollection } from '../../../../services/resourceService';
 import { hasPermission } from '../../../../services/permissions';
+import { statusLabel } from '../../../../services/catalogStatusService';
 import catalogs from '../../../../constants/catalogs';
 import config from '../../../../constants/config';
 import useDelayedFlag from '../../../../hooks/useDelayedFlag';
@@ -71,9 +72,10 @@ function CatalogRow({ item, entityKey, definition }) {
     <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
       <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: colors.mintLight, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: colors.brand, fontWeight: '800' }}>{definition.label[0]}</Text></View>
       <View style={{ flex: 1, gap: 4 }}><Text numberOfLines={1} style={{ color: colors.ink, fontWeight: '800', fontSize: 15 }}>{item[definition.titleField] || 'Registro sin nombre'}</Text><Text numberOfLines={1} style={{ color: colors.inkMuted, fontSize: 12 }}>{subtitle || 'Sin información adicional'}</Text></View>
+      <Pill tone={item.status === 'active' ? 'success' : 'demo'}>{statusLabel(item.status)}</Pill>
       <Text style={{ color: colors.inkMuted, fontSize: 22 }}>›</Text>
     </Card>
   </Pressable>;
 }
 
-function singular(key) { return key === 'categories' ? 'categoría' : key === 'clients' ? 'cliente' : key === 'suppliers' ? 'proveedor' : 'producto'; }
+function singular(key) { return key === 'categories' ? 'categoría' : key === 'clients' ? 'cliente' : key === 'suppliers' ? 'proveedor' : key === 'warehouses' ? 'almacén' : 'producto'; }

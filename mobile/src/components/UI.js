@@ -73,7 +73,8 @@ export function Field({ label, value = '', onChangeText = undefined, placeholder
 export function Notice({ children, tone = 'info' }) {
   const warning = tone === 'warning';
   const error = tone === 'error';
-  return <View style={[styles.notice, warning && styles.noticeWarning, error && styles.noticeError]}><Text style={[styles.noticeText, warning && styles.noticeWarningText, error && styles.noticeErrorText]}>{children}</Text></View>;
+  const success = tone === 'success';
+  return <View style={[styles.notice, warning && styles.noticeWarning, error && styles.noticeError, success && styles.noticeSuccess]}><Text style={[styles.noticeText, warning && styles.noticeWarningText, error && styles.noticeErrorText, success && styles.noticeSuccessText]}>{children}</Text></View>;
 }
 
 export function LoadingPanel({ title = 'Cargando…', detail = 'Consultando el ERP.' }) {
@@ -121,9 +122,11 @@ const styles = StyleSheet.create({
   notice: { borderRadius: 12, backgroundColor: '#EAF2FC', borderWidth: 1, borderColor: '#D7E5F5', padding: 13 },
   noticeWarning: { backgroundColor: colors.warningLight, borderColor: '#F2DEA8' },
   noticeError: { backgroundColor: colors.dangerLight, borderColor: '#F2C8C8' },
+  noticeSuccess: { backgroundColor: colors.mintLight, borderColor: '#BFEAD7' },
   noticeText: { color: colors.brand, fontSize: 13, lineHeight: 19 },
   noticeWarningText: { color: colors.warning },
   noticeErrorText: { color: colors.danger },
+  noticeSuccessText: { color: '#26764F' },
   loadingPanel: { alignItems: 'center', justifyContent: 'center', paddingVertical: 32, gap: 12 },
   loadingTitle: { color: colors.ink, fontSize: 16, fontWeight: '800' },
   emptyPanel: { alignItems: 'center', paddingVertical: 28, gap: 7 },

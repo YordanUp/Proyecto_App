@@ -5,7 +5,8 @@ import { useAuth } from '../../../../context/AuthContext';
 import { userMessage } from '../../../../api/client';
 import catalogs from '../../../../constants/catalogs';
 import { hasPermission } from '../../../../services/permissions';
-import { Button, Card, EmptyPanel, Field, LoadingPanel, Notice, Page, SectionTitle } from '../../../../components/UI';
+import { statusActions, activateCatalogRecord, deactivateCatalogRecord, statusLabel } from '../../../../services/catalogStatusService';
+import { Button, Card, EmptyPanel, Field, LoadingPanel, Notice, Page, Pill, SectionTitle } from '../../../../components/UI';
 import colors from '../../../../theme/colors';
 
 export default function CatalogDetailScreen() {
@@ -20,7 +21,9 @@ export default function CatalogDetailScreen() {
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [statusBusy, setStatusBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [statusNotice, setStatusNotice] = useState('');
 
   const load = useCallback(async () => {
     if (!definition || !recordId) return;
@@ -73,14 +76,34 @@ export default function CatalogDetailScreen() {
     Alert.alert('Desactivar registro', `¿Desactivar ${record[definition.titleField] || definition.label}?`, [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Desactivar', style: 'destructive', onPress: async () => {
-        try { await request(`${definition.endpoint}/${encodeURIComponent(recordId)}`, { method: 'DELETE' }); router.back(); }
+        setStatusBusy(true);
+        setError(null);
+        setStatusNotice('');
+        try {
+          const response = await deactivateCatalogRecord(request, definition, recordId);
+          setRecord(response.data || { ...record, status: 'inactive' });
+          setStatusNotice('Registro desactivado. El listado se actualizará automáticamente al volver.');
+        }
         catch (deleteError) { setError(deleteError); }
+        finally { setStatusBusy(false); }
       } }
     ]);
   }
 
+  async function activate() {
+    setError(null);
+    setStatusNotice('');
+    setStatusBusy(true);
+    try {
+      const response = await activateCatalogRecord(request, definition, recordId);
+      setRecord(response.data || { ...record, status: 'active' });
+      setStatusNotice('Registro activado. El listado se actualizará automáticamente al volver.');
+    } catch (activateError) { setError(activateError); }
+    finally { setStatusBusy(false); }
+  }
+
   const canEdit = hasPermission(user, definition.updatePermission);
-  const canDelete = hasPermission(user, definition.deletePermission);
+  const actions = statusActions(user, definition, record);
   return <Page keyboard>
     <SectionTitle title={editing ? 'Editar registro' : record[definition.titleField] || definition.label} />
     <Card>
@@ -88,16 +111,19 @@ export default function CatalogDetailScreen() {
         ? <CategoryPicker key={field.name} label={field.label} categories={categories} value={values[field.name]} onChange={value => setValues(current => ({ ...current, [field.name]: value }))} />
         : <Field key={field.name} label={field.label} value={values[field.name]} onChangeText={value => setValues(current => ({ ...current, [field.name]: value }))} keyboardType={field.type === 'number' ? 'decimal-pad' : field.type === 'email' ? 'email-address' : field.type === 'phone' ? 'phone-pad' : 'default'} multiline={field.multiline} autoCapitalize={field.type === 'email' ? 'none' : 'sentences'} />)
         : <RecordDetails record={record} definition={definition} />}
-      {record.status ? <View style={{ gap: 6 }}><Text style={{ color: colors.inkMuted, fontSize: 12 }}>Estado</Text><Text style={{ color: colors.ink, fontWeight: '700' }}>{record.status === 'active' ? 'Activo' : 'Inactivo'}</Text></View> : null}
+      {record.status ? <View style={{ gap: 6, flexDirection: 'row', alignItems: 'center' }}><Text style={{ color: colors.inkMuted, fontSize: 12 }}>Estado</Text><Pill tone={record.status === 'active' ? 'success' : 'demo'}>{statusLabel(record.status)}</Pill></View> : null}
       {error ? <Notice tone="error">{userMessage(error)}</Notice> : null}
+      {statusNotice ? <Notice tone="success">{statusNotice}</Notice> : null}
       {editing ? <>
         <Button title="Guardar cambios" loading={saving} onPress={save} />
         <Button title="Descartar cambios" variant="secondary" onPress={discardChanges} />
       </> : <>
         {canEdit ? <Button title="Editar" onPress={() => setEditing(true)} /> : null}
-        {canDelete && record.status !== 'inactive' ? <Button title="Desactivar" variant="danger" onPress={deactivate} /> : null}
+        {actions.canDeactivate ? <Button title="Desactivar" variant="danger" loading={statusBusy} onPress={deactivate} /> : null}
+        {actions.canActivate ? <Button title="Reactivar" variant="secondary" loading={statusBusy} onPress={activate} /> : null}
       </>}
     </Card>
+    <Button title="Volver al catálogo" variant="secondary" onPress={() => router.back()} />
   </Page>;
 }
 

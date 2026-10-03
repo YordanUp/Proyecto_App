@@ -46,7 +46,7 @@ export default function NewCatalogRecordScreen() {
   }
 
   return <Page keyboard>
-    <SectionTitle title={`Nuevo ${key === 'categories' ? 'categoría' : key === 'clients' ? 'cliente' : key === 'suppliers' ? 'proveedor' : 'producto'}`} />
+    <SectionTitle title={`${key === 'categories' ? 'Nueva' : 'Nuevo'} ${singular(key)}`} />
     <Card>
       {definition.fields.map(field => field.type === 'category'
         ? <CategoryPicker key={field.name} label={field.label} categories={categories} value={values[field.name]} onChange={value => setValues(current => ({ ...current, [field.name]: value }))} />
@@ -66,4 +66,12 @@ function CategoryPicker({ label, categories, value, onChange }) {
     </Pressable>)}
     {!categories.length ? <Text style={{ color: colors.inkMuted, fontSize: 12 }}>No hay categorías activas disponibles.</Text> : null}
   </View>;
+}
+
+function singular(key) {
+  if (key === 'categories') return 'categoría';
+  if (key === 'clients') return 'cliente';
+  if (key === 'suppliers') return 'proveedor';
+  if (key === 'warehouses') return 'almacén';
+  return 'producto';
 }
