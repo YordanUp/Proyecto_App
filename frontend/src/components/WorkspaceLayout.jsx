@@ -20,7 +20,8 @@ const sections = [
     items: [
       { to: '/products', label: 'Productos', icon: '▦' },
       { to: '/clients', label: 'Clientes y proveedores', icon: '♧' },
-      { to: '/categories', label: 'Categorías', icon: '▧' }
+      { to: '/categories', label: 'Categorías', icon: '▧' },
+      { to: '/warehouses', label: 'Almacenes', icon: '▤' }
     ]
   },
   {
@@ -49,6 +50,7 @@ Object.assign(pageTitles, {
   '/products': 'Productos',
   '/clients': 'Clientes y proveedores',
   '/categories': 'Categorías',
+  '/warehouses': 'Almacenes',
   '/users': 'Usuarios y permisos',
   '/roles': 'Roles y permisos',
   '/audit': 'Auditoría del sistema',
@@ -66,6 +68,7 @@ const pageDescriptions = {
   '/products': 'Catálogo persistente de productos.',
   '/clients': 'Catálogos persistentes de clientes y proveedores.',
   '/categories': 'Catálogo persistente de categorías.',
+  '/warehouses': 'Catálogo persistente de almacenes; las existencias se consultan en Inventario.',
   '/users': 'Administración persistente de cuentas de usuario.',
   '/roles': 'Administración persistente de roles y permisos.',
   '/audit': 'Eventos persistentes registrados por el núcleo.',

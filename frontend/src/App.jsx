@@ -19,7 +19,8 @@ import {
   RolesPage,
   SalesPage,
   SettingsPage,
-  UsersPage
+  UsersPage,
+  WarehousesPage
 } from './screens';
 import VerifyEmailPage from './screens/Login/VerifyEmailPage';
 
@@ -106,6 +107,7 @@ export default function App() {
         <Route path="/settings" element={<SettingsPage session={authContext} />} />
         <Route path="/clients" element={<CatalogPage session={authContext} />} />
         <Route path="/categories" element={<CategoriesPage session={authContext} />} />
+        <Route path="/warehouses" element={<WarehousesPage session={authContext} />} />
       </Route>
       <Route
         path="/login"

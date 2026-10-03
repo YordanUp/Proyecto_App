@@ -1,6 +1,7 @@
 export { default as AuditPage } from './Monitoring/AuditPage';
 export { default as CategoriesPage } from './Categories/CategoriesPage';
 export { default as CatalogPage } from './Catalog/CatalogPage';
+export { default as WarehousesPage } from './Catalog/WarehousesPage';
 export { default as DashboardPage } from './Dashboard/DashboardPage';
 export { default as FinancePage } from './Finance/FinancePage';
 export { default as IntegrationsPage } from './Integrations/IntegrationsPage';
