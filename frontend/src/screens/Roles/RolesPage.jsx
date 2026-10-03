@@ -1,6 +1,11 @@
-import { API_URL, apiFetch } from '../../services/api';
 import { useEffect, useState } from 'react';
+import { apiRequest } from '../../services/api';
 
+const permissionGroups = permissions => Object.entries((permissions || []).reduce((groups, permission) => {
+  const [module] = permission.split('.');
+  (groups[module] ||= []).push(permission);
+  return groups;
+}, {}));
 
 export default function RolesPage({ session }) {
   const [roles, setRoles] = useState([]);
@@ -17,16 +22,7 @@ export default function RolesPage({ session }) {
           return;
         }
 
-        const response = await apiFetch(`${API_URL}/api/roles`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        const payload = await response.json();
-
-        if (!response.ok || !payload?.success) {
-          throw new Error(payload?.message || 'No se pudieron cargar los roles');
-        }
-
+        const payload = await apiRequest('/api/roles', { token });
         setRoles(Array.isArray(payload.data) ? payload.data : []);
       } catch (loadError) {
         setError(loadError.message);
@@ -45,26 +41,30 @@ export default function RolesPage({ session }) {
       {loading ? (
         <div className="card">Cargando roles...</div>
       ) : (
-        <div className="card">
+      <div className="card">
           <table className="data-table">
             <thead>
               <tr>
                 <th>Nombre</th>
                 <th>Descripción</th>
                 <th>Permisos</th>
+                <th>Tipo</th>
               </tr>
             </thead>
             <tbody>
               {roles.length === 0 ? (
                 <tr>
-                  <td colSpan="3" className="empty-state">No hay roles registrados.</td>
+                  <td colSpan="4" className="empty-state">No hay roles registrados.</td>
                 </tr>
               ) : (
                 roles.map((role) => (
                   <tr key={role.id}>
                     <td>{role.name}</td>
                     <td>{role.description || 'Sin descripción'}</td>
-                    <td>{Array.isArray(role.permissions) ? role.permissions.length : 0}</td>
+                    <td><details><summary>{Array.isArray(role.permissions) ? role.permissions.length : 0} permisos</summary>
+                      {permissionGroups(role.permissions).map(([module, permissions]) => <div key={module} className="role-permission-group"><strong>{module}</strong><ul>{permissions.map(permission => <li key={permission}>{permission}</li>)}</ul></div>)}
+                    </details></td>
+                    <td>{role.isSystem ? 'Sistema' : 'Personalizado'}</td>
                   </tr>
                 ))
               )}

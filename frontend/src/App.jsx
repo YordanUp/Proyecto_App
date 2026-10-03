@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { apiRequest } from './services/api';
 import WorkspaceLayout from './components/WorkspaceLayout';
+import { ROUTE_PERMISSIONS, hasAnyPermission } from './services/permissions';
 import {
   AuditPage,
   CategoriesPage,
@@ -40,9 +41,10 @@ function readSession() {
   }
 }
 
-function ProtectedRoute({ isAuthenticated, children }) {
+function ProtectedRoute({ isAuthenticated, user, permission, children }) {
   const location = useLocation();
   if (!isAuthenticated) return <Navigate to="/login" replace state={{ from: location }} />;
+  if (permission && !hasAnyPermission(user, permission)) return <div className="card warning-box" role="alert">No tienes permiso para acceder a este módulo.</div>;
   return children;
 }
 
@@ -87,27 +89,27 @@ export default function App() {
     <Routes>
       <Route
         element={(
-          <ProtectedRoute isAuthenticated={isAuthenticated}>
+          <ProtectedRoute isAuthenticated={isAuthenticated} user={session.user}>
             <WorkspaceLayout session={authContext} onLogout={handleLogout} />
           </ProtectedRoute>
         )}
       >
-        <Route path="/" element={<DashboardPage session={authContext} />} />
-        <Route path="/products" element={<ProductsPage session={authContext} />} />
-        <Route path="/inventory" element={<InventoryPage session={authContext} />} />
-        <Route path="/sales" element={<SalesPage session={authContext} />} />
-        <Route path="/purchases" element={<PurchasesPage session={authContext} />} />
-        <Route path="/finance" element={<FinancePage session={authContext} />} />
-        <Route path="/reports" element={<ReportsPage session={authContext} />} />
-        <Route path="/notifications" element={<NotificationsPage session={authContext} />} />
-        <Route path="/integrations" element={<IntegrationsPage session={authContext} />} />
-        <Route path="/audit" element={<AuditPage session={authContext} />} />
-        <Route path="/users" element={<UsersPage session={authContext} />} />
-        <Route path="/roles" element={<RolesPage session={authContext} />} />
-        <Route path="/settings" element={<SettingsPage session={authContext} />} />
-        <Route path="/clients" element={<CatalogPage session={authContext} />} />
-        <Route path="/categories" element={<CategoriesPage session={authContext} />} />
-        <Route path="/warehouses" element={<WarehousesPage session={authContext} />} />
+        <Route path="/" element={<ProtectedRoute isAuthenticated user={session.user} permission={ROUTE_PERMISSIONS['/']}><DashboardPage session={authContext} /></ProtectedRoute>} />
+        <Route path="/products" element={<ProtectedRoute isAuthenticated user={session.user} permission={ROUTE_PERMISSIONS['/products']}><ProductsPage session={authContext} /></ProtectedRoute>} />
+        <Route path="/inventory" element={<ProtectedRoute isAuthenticated user={session.user} permission={ROUTE_PERMISSIONS['/inventory']}><InventoryPage session={authContext} /></ProtectedRoute>} />
+        <Route path="/sales" element={<ProtectedRoute isAuthenticated user={session.user} permission={ROUTE_PERMISSIONS['/sales']}><SalesPage session={authContext} /></ProtectedRoute>} />
+        <Route path="/purchases" element={<ProtectedRoute isAuthenticated user={session.user} permission={ROUTE_PERMISSIONS['/purchases']}><PurchasesPage session={authContext} /></ProtectedRoute>} />
+        <Route path="/finance" element={<ProtectedRoute isAuthenticated user={session.user} permission={ROUTE_PERMISSIONS['/finance']}><FinancePage session={authContext} /></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute isAuthenticated user={session.user} permission={ROUTE_PERMISSIONS['/reports']}><ReportsPage session={authContext} /></ProtectedRoute>} />
+        <Route path="/notifications" element={<ProtectedRoute isAuthenticated user={session.user} permission={ROUTE_PERMISSIONS['/notifications']}><NotificationsPage session={authContext} /></ProtectedRoute>} />
+        <Route path="/integrations" element={<ProtectedRoute isAuthenticated user={session.user} permission={ROUTE_PERMISSIONS['/integrations']}><IntegrationsPage session={authContext} /></ProtectedRoute>} />
+        <Route path="/audit" element={<ProtectedRoute isAuthenticated user={session.user} permission={ROUTE_PERMISSIONS['/audit']}><AuditPage session={authContext} /></ProtectedRoute>} />
+        <Route path="/users" element={<ProtectedRoute isAuthenticated user={session.user} permission={ROUTE_PERMISSIONS['/users']}><UsersPage session={authContext} /></ProtectedRoute>} />
+        <Route path="/roles" element={<ProtectedRoute isAuthenticated user={session.user} permission={ROUTE_PERMISSIONS['/roles']}><RolesPage session={authContext} /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute isAuthenticated user={session.user} permission={ROUTE_PERMISSIONS['/settings']}><SettingsPage session={authContext} /></ProtectedRoute>} />
+        <Route path="/clients" element={<ProtectedRoute isAuthenticated user={session.user} permission={ROUTE_PERMISSIONS['/clients']}><CatalogPage session={authContext} /></ProtectedRoute>} />
+        <Route path="/categories" element={<ProtectedRoute isAuthenticated user={session.user} permission={ROUTE_PERMISSIONS['/categories']}><CategoriesPage session={authContext} /></ProtectedRoute>} />
+        <Route path="/warehouses" element={<ProtectedRoute isAuthenticated user={session.user} permission={ROUTE_PERMISSIONS['/warehouses']}><WarehousesPage session={authContext} /></ProtectedRoute>} />
       </Route>
       <Route
         path="/login"

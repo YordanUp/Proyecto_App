@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../../services/api';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ASSIGNABLE_SYSTEM_ROLES = new Set(['admin', 'ventas', 'compras', 'almacen', 'finanzas', 'supervisor']);
 
 function hasPermission(user, permission) {
   return Array.isArray(user?.permissions) && user.permissions.includes(permission);
@@ -107,7 +108,7 @@ export default function UsersPage({ session }) {
 
   const permissions = session?.user;
   const canRead = hasPermission(permissions, 'users.read');
-  const canCreate = hasPermission(permissions, 'users.create');
+  const canCreate = hasPermission(permissions, 'users.create') && hasPermission(permissions, 'users.assign_role') && hasPermission(permissions, 'roles.read');
   const canUpdate = hasPermission(permissions, 'users.update');
   // The real PATCH route requires all three permissions (authorize uses every()).
   const canChangeRole = canUpdate && hasPermission(permissions, 'users.assign_role') && hasPermission(permissions, 'roles.read');
@@ -146,7 +147,7 @@ export default function UsersPage({ session }) {
     if (!canCreate && !canChangeRole) { setRoles([]); setRolesError(''); return () => { active = false; }; }
     setRolesError('');
     apiRequest('/api/roles')
-      .then(payload => { if (active) setRoles(Array.isArray(payload.data) ? payload.data : []); })
+      .then(payload => { if (active) setRoles(Array.isArray(payload.data) ? payload.data.filter(role => role.isSystem && ASSIGNABLE_SYSTEM_ROLES.has(role.name)) : []); })
       .catch(loadError => { if (active) setRolesError(loadError.message || 'No se pudieron cargar los roles.'); });
     return () => { active = false; };
   }, [canCreate, canChangeRole, session?.token]);

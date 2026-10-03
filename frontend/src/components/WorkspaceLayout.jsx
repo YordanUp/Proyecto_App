@@ -1,39 +1,43 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { hasAnyPermission, hasPermission } from '../services/permissions';
 
 const sections = [
   {
     label: 'General',
-    items: [{ to: '/', label: 'Resumen', icon: '⌂' }]
+    items: [{ to: '/', label: 'Resumen', icon: '⌂', permissions: ['dashboard.read'] }]
   },
   {
     label: 'Operación',
     items: [
-      { to: '/inventory', label: 'Inventario', icon: '▤' },
-      { to: '/sales', label: 'Ventas', icon: '↗' },
-      { to: '/purchases', label: 'Compras', icon: '⇣' },
-      { to: '/finance', label: 'Finanzas', icon: '◉' }
+      { to: '/inventory', label: 'Inventario', icon: '▤', permissions: ['inventory.read'] },
+      { to: '/sales', label: 'Ventas', icon: '↗', permissions: ['sales.read'] },
+      { to: '/purchases', label: 'Compras', icon: '⇣', permissions: ['purchases.read'] },
+      { to: '/finance', label: 'Finanzas', icon: '◉', permissions: ['finance.read'] }
     ]
+  },
+  {
+    label: 'Análisis',
+    items: [{ to: '/reports', label: 'Reportes', icon: '▥', permissions: ['reports.read'] }]
   },
   {
     label: 'Catálogos',
     items: [
-      { to: '/products', label: 'Productos', icon: '▦' },
-      { to: '/clients', label: 'Clientes y proveedores', icon: '♧' },
-      { to: '/categories', label: 'Categorías', icon: '▧' },
-      { to: '/warehouses', label: 'Almacenes', icon: '▤' }
+      { to: '/products', label: 'Productos', icon: '▦', permissions: ['products.read'] },
+      { to: '/clients', label: 'Clientes y proveedores', icon: '♧', permissions: ['clients.read', 'suppliers.read'] },
+      { to: '/categories', label: 'Categorías', icon: '▧', permissions: ['categories.read'] },
+      { to: '/warehouses', label: 'Almacenes', icon: '▤', permissions: ['warehouses.read'] }
     ]
   },
   {
     label: 'Administración',
     items: [
-      { to: '/users', label: 'Usuarios', icon: '♙' },
-      { to: '/roles', label: 'Roles y permisos', icon: '⌘' },
-      { to: '/audit', label: 'Auditoría', icon: '◷' },
-      { to: '/reports', label: 'Reportes', icon: '▥' },
-      { to: '/notifications', label: 'Notificaciones', icon: '♧', demo: true },
-      { to: '/integrations', label: 'Integraciones', icon: '⤢', demo: true },
-      { to: '/settings', label: 'Configuración', icon: '⚙', demo: true }
+      { to: '/users', label: 'Usuarios', icon: '♙', permissions: ['users.read'] },
+      { to: '/roles', label: 'Roles y permisos', icon: '⌘', permissions: ['roles.read'] },
+      { to: '/audit', label: 'Auditoría', icon: '◷', permissions: ['audit.read'] },
+      { to: '/notifications', label: 'Notificaciones', icon: '♧', demo: true, permissions: ['notifications.read'] },
+      { to: '/integrations', label: 'Integraciones', icon: '⤢', demo: true, permissions: ['integrations.read'] },
+      { to: '/settings', label: 'Configuración', icon: '⚙', demo: true, permissions: ['settings.read'] }
     ]
   }
 ];
@@ -89,6 +93,10 @@ export default function WorkspaceLayout({ session, onLogout }) {
   const { pathname } = useLocation();
   const pageTitle = pageTitles[pathname] || 'Espacio de trabajo';
   const isDemo = demoPaths.has(pathname);
+  const visibleSections = sections.map(section => ({
+    ...section,
+    items: section.items.filter(item => hasAnyPermission(session?.user, item.permissions))
+  })).filter(section => section.items.length);
 
   return (
     <div className={`erp-layout${sidebarOpen ? ' sidebar-open' : ''}`}>
@@ -105,7 +113,7 @@ export default function WorkspaceLayout({ session, onLogout }) {
 
         <div className="sidebar-caption">Espacio de trabajo</div>
         <nav className="sidebar-navigation">
-          {sections.map(section => (
+          {visibleSections.map(section => (
             <div className="nav-section" key={section.label}>
               <span className="nav-section-title">{section.label}</span>
               {section.items.map(item => (
@@ -147,7 +155,7 @@ export default function WorkspaceLayout({ session, onLogout }) {
             <h1>{pageTitle}</h1>
           </div>
           <div className="topbar-actions">
-            <NavLink to="/notifications" className="topbar-icon-link" aria-label="Notificaciones">♧</NavLink>
+            {hasPermission(session?.user, 'notifications.read') ? <NavLink to="/notifications" className="topbar-icon-link" aria-label="Notificaciones">♧</NavLink> : null}
             <div className="topbar-user">
               <span className="user-avatar topbar-avatar">{initials(session?.user?.name)}</span>
               <span className="topbar-user-copy">
