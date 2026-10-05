@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../../services/api';
+import QuotationsPanel from './QuotationsPanel';
 
 const PAGE_SIZE = 20;
 const STATUS_LABELS = { draft: 'Borrador', confirmed: 'Confirmada', cancelled: 'Cancelada' };
@@ -113,6 +114,7 @@ function SaleDetails({ sale, onClose }) {
 }
 
 export default function SalesPage({ session }) {
+  const [section, setSection] = useState('sales');
   const [sales, setSales] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, pages: 0, total: 0 });
   const [page, setPage] = useState(1);
@@ -198,6 +200,8 @@ export default function SalesPage({ session }) {
   }
 
   return <div className="app-shell dashboard-layout sales-page">
+    <nav className="sales-filters" aria-label="Secciones de ventas"><button type="button" className={section === 'sales' ? 'users-primary-button' : 'secondary'} onClick={() => setSection('sales')}>Ventas</button><button type="button" className={section === 'quotations' ? 'users-primary-button' : 'secondary'} onClick={() => setSection('quotations')}>Cotizaciones</button></nav>
+    {section === 'quotations' ? <QuotationsPanel session={session} onViewSale={async saleId => { try { const result = await apiRequest(`/api/sales/${saleId}`); setActiveSale(result.data); setSection('sales'); } catch (saleError) { setError(saleError.message || 'No se pudo consultar la venta creada.'); } }} /> : <>
     {notice ? <p className="inventory-notice" role="status">{notice}</p> : null}
     {error ? <p className="card warning-box" role="alert">{error}</p> : null}
     <section className="card sales-toolbar"><div><h3>Ventas persistentes</h3><p>Los borradores no afectan existencias; confirmar y cancelar registran sus movimientos en una transacción.</p></div>{canCreate ? <button type="button" className="users-primary-button" onClick={openCreate}>+ Nueva venta</button> : null}</section>
@@ -219,5 +223,6 @@ export default function SalesPage({ session }) {
     </section>}
     {modal === 'create' ? <SaleForm clients={catalogs.clients} products={catalogs.products} warehouses={catalogs.warehouses} loading={catalogLoading} loadError={catalogError} onClose={() => setModal('')} onCreate={createSale} /> : null}
     {activeSale ? <SaleDetails sale={activeSale} onClose={() => setActiveSale(null)} /> : null}
+    </>}
   </div>;
 }
