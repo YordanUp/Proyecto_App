@@ -7,6 +7,7 @@ import { Button, Field, Notice, Page } from '../components/UI';
 import { logo } from '../constants/assets';
 import colors from '../theme/colors';
 import config from '../constants/config';
+import { keyboardAvoidingBehavior } from '../services/layout';
 
 export default function LoginScreen() {
   const { status, signingIn, signIn, request } = useAuth();
@@ -51,7 +52,7 @@ export default function LoginScreen() {
   }
 
   return <Page contentStyle={{ flexGrow: 1, justifyContent: 'center' }} keyboard>
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flexGrow: 1, justifyContent: 'center' }} behavior={keyboardAvoidingBehavior(Platform.OS)}>
       <View style={{ backgroundColor: '#fff', borderRadius: 22, padding: 24, gap: 18, borderColor: colors.border, borderWidth: 1 }}>
         <View style={{ alignItems: 'center', gap: 8 }}>
           <Image source={logo} resizeMode="contain" style={{ width: 130, height: 100 }} accessibilityLabel="Logo YordanUp" />
