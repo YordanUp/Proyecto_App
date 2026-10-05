@@ -55,7 +55,13 @@ Endpoints autenticados: `GET /api/inventory`, `GET /api/inventory/movements`, `G
 
 Endpoints autenticados: `GET /api/sales` (busca folio/cliente; filtra `status`, `customerId`, `from`, `to`; pagina y ordena), `GET /api/sales/:id`, `POST /api/sales`, `PUT /api/sales/:id`, `POST /api/sales/:id/confirm` y `POST /api/sales/:id/cancel`. Los borradores requieren `sales.create`; editar requiere `sales.update`; cancelar requiere `sales.cancel`; lectura requiere `sales.read`. No existe `sales.confirm` en el catálogo de permisos, por lo que confirmar usa el permiso existente `sales.create`. El servidor calcula precios, impuestos y totales; la UI no establece el estado ni los totales finales.
 
-Las cotizaciones y solicitudes de devolución anteriores siguen en memoria y no se usan para crear ventas persistentes.
+### Cotizaciones
+
+Las cotizaciones se guardan en MongoDB en `Quotation`; ya no se sirven desde datos en memoria. Bajo `/api/sales/quotations` se ofrecen listado paginado con `page`, `limit`, `search`, `status`, `sort` y `order`; detalle; creación; edición solo en `draft`; acciones `send`, `accept`, `reject`, `cancel` y conversión. Los folios siguen `COT-AAAA-######` y usan `Sequence` dentro de transacción. El servidor valida cliente/productos/almacenes activos y vuelve a calcular precios, impuestos y totales. Los permisos reutilizan `sales.read`, `sales.create`, `sales.update` y `sales.cancel`.
+
+La conversión solo admite cotizaciones `accepted` y, en una única transacción, crea una venta normal `draft`, enlaza `saleId`, actualiza la cotización a `converted` y registra auditoría. Convertir no descuenta inventario ni crea cuentas por cobrar o movimientos financieros; esos efectos ocurren al confirmar después la venta con el flujo existente. Los eventos de cotización usan `quotation.create`, `quotation.update`, `quotation.send`, `quotation.accept`, `quotation.reject`, `quotation.cancel` y `quotation.convert`. Para instalar/verificar índices en la base configurada, ejecutar `npm run db:indexes`.
+
+Las solicitudes de devolución continúan siendo demostrativas y mantienen su almacenamiento heredado en memoria; están fuera de esta fase.
 
 ## Compras persistentes
 

@@ -2,15 +2,6 @@ const service = require('../services/salesService');
 const legacyService = require('../services/legacySalesService');
 const { successResponse, errorResponse } = require('../utils/response');
 
-function getQuotations(req, res) {
-  return successResponse(res, 200, 'Cotizaciones demostrativas consultadas', legacyService.listQuotations());
-}
-
-function createQuotationController(req, res) {
-  try { return successResponse(res, 201, 'Cotización demostrativa creada', legacyService.createQuotation(req.body)); }
-  catch (error) { return errorResponse(res, 400, error.message, 'QUOTATION_CREATE_ERROR'); }
-}
-
 async function getSales(req, res, next) {
   try {
     const result = await service.listSales(req.query);
@@ -56,4 +47,4 @@ function createReturnSaleController(req, res) {
   catch (error) { return errorResponse(res, 400, error.message, 'RETURN_SALE_CREATE_ERROR'); }
 }
 
-module.exports = { getQuotations, createQuotationController, getSales, getSale, createSaleController, updateSale, confirmSale, cancelSale, createReturnSaleController };
+module.exports = { getSales, getSale, createSaleController, updateSale, confirmSale, cancelSale, createReturnSaleController };

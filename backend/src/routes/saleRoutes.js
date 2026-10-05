@@ -1,13 +1,13 @@
 const express = require('express');
 const { authenticateToken, authorize } = require('../middleware/auth');
 const controller = require('../controllers/salesController');
+const quotationRoutes = require('./quotationRoutes');
 
 const router = express.Router();
 
 router.use(authenticateToken);
 
-router.get('/quotations', authorize(['sales.read']), controller.getQuotations);
-router.post('/quotations', authorize(['sales.create']), controller.createQuotationController);
+router.use('/quotations', quotationRoutes);
 router.get('/', authorize(['sales.read']), controller.getSales);
 router.post('/', authorize(['sales.create']), controller.createSaleController);
 // Retain the former /api/sales/sales paths for clients deployed against the prototype.

@@ -165,17 +165,37 @@ async function nextFolio(session) {
 }
 
 async function createSale(data, actorId) {
+  // Reject malformed requests before opening a MongoDB session; catalog and price
+  // validation still runs inside the transaction in createSaleInSession.
+  objectId(data?.customerId || data?.customer, 'customerId');
+  objectId(actorId, 'usuario');
+  if (!Array.isArray(data?.items) || data.items.length === 0 || data.items.length > 100) {
+    throw salesError(400, 'VALIDATION_ERROR', 'La venta debe incluir entre 1 y 100 productos');
+  }
+  data.items.forEach((item, index) => {
+    objectId(item?.productId || item?.product, `items[${index}].productId`);
+    objectId(item?.warehouseId || item?.warehouse, `items[${index}].warehouseId`);
+    if (!Number.isFinite(Number(item.quantity)) || Number(item.quantity) <= 0) {
+      throw salesError(400, 'VALIDATION_ERROR', `La cantidad del producto ${index + 1} debe ser mayor a cero`);
+    }
+  });
+  return runTransaction(session => createSaleInSession(data, actorId, session));
+}
+
+async function createSaleInSession(data, actorId, session, { snapshotItems = null } = {}) {
   const customerId = objectId(data?.customerId || data?.customer, 'customerId');
   const createdBy = objectId(actorId, 'usuario');
-  return runTransaction(async session => {
-    const customer = await validateCustomer(customerId, session);
-    const items = await calculateItems(data.items, session);
-    const folio = await nextFolio(session);
-    const saleValues = { folio, customer: customer._id, items, ...totals(items), status: 'draft', createdBy };
-    const [sale] = await Sale.create([saleValues], { session });
-    await recordAudit({ userId: createdBy, action: 'sale.created', module: 'sales', recordId: sale.id, after: saleValues, session });
-    return serializeSale(sale);
+  const customer = await validateCustomer(customerId, session);
+  const items = await calculateItems(data.items, session);
+  if (snapshotItems) items.forEach((item, index) => {
+    item.productNameSnapshot = snapshotItems[index]?.productNameSnapshot || item.productNameSnapshot;
+    item.skuSnapshot = snapshotItems[index]?.skuSnapshot || item.skuSnapshot;
   });
+  const folio = await nextFolio(session);
+  const saleValues = { folio, customer: customer._id, items, ...totals(items), status: 'draft', createdBy };
+  const [sale] = await Sale.create([saleValues], { session });
+  await recordAudit({ userId: createdBy, action: 'sale.created', module: 'sales', recordId: sale.id, after: saleValues, session });
+  return serializeSale(sale);
 }
 
 async function updateSale(id, data, actorId) {
@@ -240,4 +260,7 @@ async function cancelSale(id, actorId) {
   });
 }
 
-module.exports = { listSales, getSaleById, createSale, updateSale, confirmSale, cancelSale, salesError };
+module.exports = {
+  listSales, getSaleById, createSale, createSaleInSession, updateSale, confirmSale, cancelSale,
+  salesError, objectId, runTransaction, validateCustomer, calculateItems, totals
+};
