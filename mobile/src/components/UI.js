@@ -8,10 +8,11 @@ export function Page({ children, scroll = true, refreshing = false, onRefresh = 
     ? <ScrollView
         contentContainerStyle={[styles.pageContent, contentStyle]}
         keyboardShouldPersistTaps={keyboard ? 'handled' : 'never'}
+        keyboardDismissMode={keyboard ? 'on-drag' : 'none'}
         refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} /> : undefined}
       >{children}</ScrollView>
     : <View style={[styles.pageContent, styles.fixedPage, contentStyle]}>{children}</View>;
-  return <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>{content}</SafeAreaView>;
+  return <SafeAreaView style={styles.safeArea} edges={['top', 'right', 'bottom', 'left']}>{content}</SafeAreaView>;
 }
 
 export function BrandHeader({ eyebrow = 'ERP modular', title, subtitle }) {

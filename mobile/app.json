@@ -12,6 +12,7 @@
     },
     "android": {
       "package": "com.yordanup.erp.mobile",
+      "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
