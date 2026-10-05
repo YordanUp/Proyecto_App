@@ -67,6 +67,26 @@ test('MOB-SALE-006: cada acción requiere permiso de UI coincidente con backend'
   assert.equal(hasPermission(user, 'sales.cancel'), false);
 });
 
+test('QUO-MOB-001..009: cada operación de cotización utiliza el endpoint persistente correcto', async () => {
+  const { request, calls } = recorder();
+  await api.listQuotations(request, { page: 2, status: 'accepted', search: 'COT-1' });
+  await api.getQuotation(request, 'q-1');
+  await api.createQuotation(request, { customerId: 'c1', items: [] });
+  await api.updateQuotation(request, 'q-1', { customerId: 'c1', items: [] });
+  await api.sendQuotation(request, 'q-1'); await api.acceptQuotation(request, 'q-1');
+  await api.rejectQuotation(request, 'q-1'); await api.cancelQuotation(request, 'q-1'); await api.convertQuotation(request, 'q-1');
+  assert.deepEqual(calls.map(({ path, options }) => [path.split('?')[0], options.method || 'GET']), [
+    ['/api/sales/quotations', 'GET'], ['/api/sales/quotations/q-1', 'GET'], ['/api/sales/quotations', 'POST'], ['/api/sales/quotations/q-1', 'PUT'],
+    ['/api/sales/quotations/q-1/send', 'POST'], ['/api/sales/quotations/q-1/accept', 'POST'], ['/api/sales/quotations/q-1/reject', 'POST'], ['/api/sales/quotations/q-1/cancel', 'POST'], ['/api/sales/quotations/q-1/convert', 'POST']
+  ]);
+  assert.match(calls[0].path, /page=2/); assert.match(calls[0].path, /status=accepted/); assert.match(calls[0].path, /search=COT-1/);
+});
+
+test('QUO-MOB-010: acciones de cotización coinciden con permisos de backend', () => {
+  const user = { permissions: ['sales.read', 'sales.update'] };
+  assert.equal(hasPermission(user, 'sales.read'), true); assert.equal(hasPermission(user, 'sales.create'), false); assert.equal(hasPermission(user, 'sales.update'), true); assert.equal(hasPermission(user, 'sales.cancel'), false);
+});
+
 test('MOB-PUR-001..006: usa los endpoints reales para crear, ordenar, recibir y cancelar', async () => {
   const { request, calls } = recorder();
   const purchase = { supplierId: 's1', items: [{ productId: 'p1', warehouseId: 'w1', quantity: 2 }] };
