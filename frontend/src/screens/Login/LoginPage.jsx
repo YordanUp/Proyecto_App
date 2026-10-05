@@ -10,6 +10,7 @@ export default function LoginPage({ onLogin }) {
   const [emailNotVerified, setEmailNotVerified] = useState(false);
   const [resendMessage, setResendMessage] = useState('');
   const [resending, setResending] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -41,20 +42,41 @@ export default function LoginPage({ onLogin }) {
   }
 
   return (
-    <div className="app-shell">
-      <div className="card auth-card">
-        <div className="auth-header">
-          <img className="auth-logo" src="/brand/logo-yordanup.png" alt="Logo YordanUp" />
-          <span className="eyebrow">ERP Modular</span>
-          <h2>Iniciar sesión</h2>
+    <main className="login-screen">
+      <section className="login-showcase" aria-label="Acerca de YordanUp">
+        <a className="login-brand" href="/" aria-label="YordanUp, inicio">
+          <img src="/brand/logo-yordanup.png" alt="" />
+          <span><strong>YordanUp</strong><small>ERP empresarial</small></span>
+        </a>
+        <div className="login-showcase-copy">
+          <span className="login-kicker">Una operación más clara</span>
+          <h1>Tu empresa,<br />en movimiento.</h1>
+          <p>Administra las operaciones de tu negocio desde un solo lugar, con información siempre a la mano.</p>
+          <div className="login-showcase-note"><span aria-hidden="true">✦</span> Control y visibilidad para cada jornada.</div>
         </div>
+        <small className="login-showcase-footer">Gestión simple. Decisiones claras.</small>
+      </section>
 
-        <form onSubmit={handleSubmit} className="auth-form">
-          <label>
+      <section className="login-panel" aria-labelledby="login-title">
+        <div className="login-panel-inner">
+          <div className="login-mobile-brand">
+            <img src="/brand/logo-yordanup.png" alt="" />
+            <span>YordanUp</span>
+          </div>
+          <div className="auth-header">
+            <span className="eyebrow">ERP modular</span>
+            <h2 id="login-title">Iniciar sesión</h2>
+            <p>Ingresa tus datos para acceder a tu espacio de trabajo.</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="auth-form">
+          <label htmlFor="login-email">
             Usuario
             <input
+              id="login-email"
               type="email"
               name="email"
+              autoComplete="username"
               value={form.email}
               onChange={(event) => setForm({ ...form, email: event.target.value })}
               placeholder="usuario@empresa.com"
@@ -62,27 +84,36 @@ export default function LoginPage({ onLogin }) {
             />
           </label>
 
-          <label>
+          <label htmlFor="login-password">
             Contraseña
-            <input
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={(event) => setForm({ ...form, password: event.target.value })}
-              placeholder="••••••••"
-              required
-            />
+            <span className="password-field">
+              <input
+                id="login-password"
+                type={showPassword ? 'text' : 'password'}
+                name="password"
+                autoComplete="current-password"
+                value={form.password}
+                onChange={(event) => setForm({ ...form, password: event.target.value })}
+                placeholder="Ingresa tu contraseña"
+                required
+              />
+              <button className="password-toggle" type="button" aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'} aria-pressed={showPassword} onClick={() => setShowPassword((visible) => !visible)}>
+                {showPassword ? 'Ocultar' : 'Mostrar'}
+              </button>
+            </span>
           </label>
 
-          {error ? <p className="form-error">{error}</p> : null}
+          {error ? <p className="form-error" role="alert">{error}</p> : null}
           {resendMessage ? <p role="status">{resendMessage}</p> : null}
-          {emailNotVerified ? <button type="button" onClick={handleResend} disabled={resending || !form.email}>{resending ? 'Enviando...' : 'Reenviar correo de verificación'}</button> : null}
+          {emailNotVerified ? <button className="login-resend" type="button" onClick={handleResend} disabled={resending || !form.email}>{resending ? 'Enviando...' : 'Reenviar correo de verificación'}</button> : null}
 
-          <button type="submit" disabled={loading}>
+          <button className="login-submit" type="submit" disabled={loading}>
             {loading ? 'Ingresando...' : 'Ingresar'}
           </button>
         </form>
-      </div>
-    </div>
+          <p className="login-help">¿Necesitas ayuda para entrar? Contacta al administrador de tu organización.</p>
+        </div>
+      </section>
+    </main>
   );
 }
