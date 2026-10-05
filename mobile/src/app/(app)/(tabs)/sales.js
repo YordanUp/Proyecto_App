@@ -29,7 +29,7 @@ export default function SalesScreen() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   return <Page refreshing={loading} onRefresh={() => load()}>
-    <SectionTitle title="Ventas" action={hasPermission(user, 'sales.create') ? <Button title="Nueva" onPress={() => router.push('/sales/new')} /> : null} />
+    <SectionTitle title="Ventas" action={<View style={{ flexDirection: 'row', gap: 8 }}>{hasPermission(user, 'sales.read') ? <Button title="Cotizaciones" variant="secondary" onPress={() => router.push('/sales/quotations')} /> : null}{hasPermission(user, 'sales.create') ? <Button title="Nueva" onPress={() => router.push('/sales/new')} /> : null}</View>} />
     <Text style={{ color: colors.inkMuted }}>Ventas persistentes. Confirmar descuenta inventario y genera la cuenta por cobrar.</Text>
     <SearchBar value={search} onChangeText={setSearch} onSearch={() => load()} placeholder="Folio o cliente" />
     <ChoiceChips options={statuses} value={status} onChange={setStatus} />

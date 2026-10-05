@@ -23,6 +23,16 @@ const createSale = (request, body) => request('/api/sales', { method: 'POST', bo
 const updateSale = (request, id, body) => request(`/api/sales/${encodeURIComponent(id)}`, { method: 'PUT', body });
 const confirmSale = (request, id) => request(`/api/sales/${encodeURIComponent(id)}/confirm`, { method: 'POST' });
 const cancelSale = (request, id) => request(`/api/sales/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
+const listQuotations = (request, params) => list(request, '/api/sales/quotations', params);
+const getQuotation = (request, id) => request(`/api/sales/quotations/${encodeURIComponent(id)}`);
+const createQuotation = (request, body) => request('/api/sales/quotations', { method: 'POST', body });
+const updateQuotation = (request, id, body) => request(`/api/sales/quotations/${encodeURIComponent(id)}`, { method: 'PUT', body });
+const quotationAction = (request, id, action) => request(`/api/sales/quotations/${encodeURIComponent(id)}/${action}`, { method: 'POST' });
+const sendQuotation = (request, id) => quotationAction(request, id, 'send');
+const acceptQuotation = (request, id) => quotationAction(request, id, 'accept');
+const rejectQuotation = (request, id) => quotationAction(request, id, 'reject');
+const cancelQuotation = (request, id) => quotationAction(request, id, 'cancel');
+const convertQuotation = (request, id) => quotationAction(request, id, 'convert');
 const listPurchases = (request, params) => list(request, '/api/purchases', params);
 const getPurchase = (request, id) => request(`/api/purchases/${encodeURIComponent(id)}`);
 const createPurchase = (request, body) => request('/api/purchases', { method: 'POST', body });
@@ -39,6 +49,7 @@ module.exports = {
   buildQuery, list, getDashboard,
   listInventory, listInventoryMovements, createInventoryMovement,
   listSales, getSale, createSale, updateSale, confirmSale, cancelSale,
+  listQuotations, getQuotation, createQuotation, updateQuotation, sendQuotation, acceptQuotation, rejectQuotation, cancelQuotation, convertQuotation,
   listPurchases, getPurchase, createPurchase, updatePurchase, orderPurchase, receivePurchase, cancelPurchase,
   listReceivables, listPayables, listFinancialMovements, registerPayment
 };
