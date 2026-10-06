@@ -146,6 +146,13 @@ describe('App routing and auth flow', () => {
     });
   });
 
+  it('blocks notifications for users without notifications.read', async () => {
+    authenticate(['dashboard.read']);
+    renderWithRouter(['/notifications']);
+    expect(await screen.findByRole('alert')).toHaveTextContent('No tienes permiso');
+    expect(screen.queryByRole('link', { name: /notificaciones/i })).not.toBeInTheDocument();
+  });
+
   it('allows access to the audit route when authenticated', async () => {
     authenticate();
     renderWithRouter(['/audit']);

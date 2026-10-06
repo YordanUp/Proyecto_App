@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { apiRequest } from '../services/api';
+import { NOTIFICATIONS_CHANGED_EVENT } from '../services/notifications';
 import { hasAnyPermission, hasPermission } from '../services/permissions';
 
 const sections = [
@@ -35,7 +37,7 @@ const sections = [
       { to: '/users', label: 'Usuarios', icon: '♙', permissions: ['users.read'] },
       { to: '/roles', label: 'Roles y permisos', icon: '⌘', permissions: ['roles.read'] },
       { to: '/audit', label: 'Auditoría', icon: '◷', permissions: ['audit.read'] },
-      { to: '/notifications', label: 'Notificaciones', icon: '♧', demo: true, permissions: ['notifications.read'] },
+      { to: '/notifications', label: 'Notificaciones', icon: '♧', permissions: ['notifications.read'] },
       { to: '/integrations', label: 'Integraciones', icon: '⤢', demo: true, permissions: ['integrations.read'] },
       { to: '/settings', label: 'Configuración', icon: '⚙', demo: true, permissions: ['settings.read'] }
     ]
@@ -77,12 +79,12 @@ const pageDescriptions = {
   '/roles': 'Administración persistente de roles y permisos.',
   '/audit': 'Eventos persistentes registrados por el núcleo.',
   '/reports': 'Reportes operativos consultados de ventas, compras, inventario y finanzas.',
-  '/notifications': 'Bandeja demostrativa de notificaciones.',
+  '/notifications': 'Notificaciones internas vinculadas a tus permisos y operaciones del ERP.',
   '/integrations': 'Panel demostrativo de integraciones.',
   '/settings': 'Preferencias de muestra, aún no persistidas.'
 };
 
-const demoPaths = new Set(['/notifications', '/integrations', '/settings']);
+const demoPaths = new Set(['/integrations', '/settings']);
 
 function initials(name = '') {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'U';
@@ -90,6 +92,7 @@ function initials(name = '') {
 
 export default function WorkspaceLayout({ session, onLogout }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const { pathname } = useLocation();
   const pageTitle = pageTitles[pathname] || 'Espacio de trabajo';
   const isDemo = demoPaths.has(pathname);
@@ -97,6 +100,25 @@ export default function WorkspaceLayout({ session, onLogout }) {
     ...section,
     items: section.items.filter(item => hasAnyPermission(session?.user, item.permissions))
   })).filter(section => section.items.length);
+
+  useEffect(() => {
+    if (!hasPermission(session?.user, 'notifications.read') || !session?.token) { setUnreadCount(0); return undefined; }
+    let active = true;
+    const refreshCount = async () => {
+      try {
+        const result = await apiRequest('/api/notifications/unread-count');
+        if (active) setUnreadCount(Number(result.data?.count) || 0);
+      } catch { if (active) setUnreadCount(0); }
+    };
+    refreshCount();
+    window.addEventListener('focus', refreshCount);
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, refreshCount);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', refreshCount);
+      window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, refreshCount);
+    };
+  }, [pathname, session?.token, session?.user]);
 
   return (
     <div className={`erp-layout${sidebarOpen ? ' sidebar-open' : ''}`}>
@@ -155,7 +177,7 @@ export default function WorkspaceLayout({ session, onLogout }) {
             <h1>{pageTitle}</h1>
           </div>
           <div className="topbar-actions">
-            {hasPermission(session?.user, 'notifications.read') ? <NavLink to="/notifications" className="topbar-icon-link" aria-label="Notificaciones">♧</NavLink> : null}
+            {hasPermission(session?.user, 'notifications.read') ? <NavLink to="/notifications" className="topbar-icon-link notification-bell" aria-label={`Notificaciones, ${unreadCount} sin leer`}><span aria-hidden="true">♧</span>{unreadCount > 0 ? <span className="notification-count-badge">{unreadCount > 99 ? '99+' : unreadCount}</span> : null}</NavLink> : null}
             <div className="topbar-user">
               <span className="user-avatar topbar-avatar">{initials(session?.user?.name)}</span>
               <span className="topbar-user-copy">
