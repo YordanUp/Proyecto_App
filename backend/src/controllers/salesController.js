@@ -1,6 +1,6 @@
 const service = require('../services/salesService');
-const legacyService = require('../services/legacySalesService');
-const { successResponse, errorResponse } = require('../utils/response');
+const returnService = require('../services/salesReturnService');
+const { successResponse } = require('../utils/response');
 
 async function getSales(req, res, next) {
   try {
@@ -42,9 +42,23 @@ async function cancelSale(req, res, next) {
   } catch (error) { return next(error); }
 }
 
-function createReturnSaleController(req, res) {
-  try { return successResponse(res, 201, 'Solicitud de devolución demostrativa registrada', legacyService.createReturnSale(req.body)); }
-  catch (error) { return errorResponse(res, 400, error.message, 'RETURN_SALE_CREATE_ERROR'); }
+async function listSalesReturns(req, res, next) {
+  try {
+    const result = await returnService.listSalesReturns(req.query);
+    return res.status(200).json({ success: true, message: 'Devoluciones consultadas correctamente', data: result.items, pagination: result.pagination });
+  } catch (error) { return next(error); }
 }
 
-module.exports = { getSales, getSale, createSaleController, updateSale, confirmSale, cancelSale, createReturnSaleController };
+async function getSalesReturn(req, res, next) {
+  try {
+    const item = await returnService.getSalesReturnById(req.params.id);
+    return item ? successResponse(res, 200, 'Devolución consultada correctamente', item) : res.status(404).json({ success: false, message: 'Devolución no encontrada', error: 'SALES_RETURN_NOT_FOUND' });
+  } catch (error) { return next(error); }
+}
+
+async function createSalesReturn(req, res, next) {
+  try { return successResponse(res, 201, 'Devolución procesada correctamente', await returnService.createSalesReturn(req.body || {}, req.user.id)); }
+  catch (error) { return next(error); }
+}
+
+module.exports = { getSales, getSale, createSaleController, updateSale, confirmSale, cancelSale, listSalesReturns, getSalesReturn, createSalesReturn };

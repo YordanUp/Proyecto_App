@@ -8,6 +8,7 @@ require('../src/models/catalog');
 require('../src/models/InventoryStock');
 require('../src/models/InventoryMovement');
 require('../src/models/Sale');
+require('../src/models/SalesReturn');
 require('../src/models/Quotation');
 require('../src/models/Purchase');
 require('../src/models/AccountsReceivable');

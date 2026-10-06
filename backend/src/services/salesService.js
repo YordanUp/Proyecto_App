@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Sale = require('../models/Sale');
+const SalesReturn = require('../models/SalesReturn');
 const Sequence = require('../models/Sequence');
 const { Client, Product, Warehouse } = require('../models/catalog');
 const inventoryService = require('./inventoryService');
@@ -252,6 +253,9 @@ async function cancelSale(id, actorId) {
     if (!['draft', 'confirmed'].includes(sale.status)) throw salesError(409, 'INVALID_SALE_TRANSITION', 'La venta ya fue cancelada y no admite otra transición');
     const before = { status: sale.status, confirmedAt: sale.confirmedAt, cancelledAt: sale.cancelledAt };
     if (sale.status === 'confirmed') {
+      if (await SalesReturn.exists({ sale: sale._id, status: 'processed' }).session(session)) {
+        throw salesError(409, 'SALE_HAS_RETURNS', 'La venta tiene devoluciones procesadas y no se puede cancelar');
+      }
       await financeService.cancelReceivableForSale({ saleId: sale._id, userId, session });
       for (const item of sale.items) {
         await inventoryService.restoreForSale({ productId: item.product, warehouseId: item.warehouse, quantity: item.quantity, saleId: sale.id, folio: sale.folio, userId, session });

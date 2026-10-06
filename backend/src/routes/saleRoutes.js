@@ -8,6 +8,9 @@ const router = express.Router();
 router.use(authenticateToken);
 
 router.use('/quotations', quotationRoutes);
+router.get('/returns', authorize(['sales.returns.read']), controller.listSalesReturns);
+router.post('/returns', authorize(['sales.returns.create']), controller.createSalesReturn);
+router.get('/returns/:id', authorize(['sales.returns.read']), controller.getSalesReturn);
 router.get('/', authorize(['sales.read']), controller.getSales);
 router.post('/', authorize(['sales.create']), controller.createSaleController);
 // Retain the former /api/sales/sales paths for clients deployed against the prototype.
@@ -17,6 +20,5 @@ router.get('/:id', authorize(['sales.read']), controller.getSale);
 router.put('/:id', authorize(['sales.update']), controller.updateSale);
 router.post('/:id/confirm', authorize(['sales.create']), controller.confirmSale);
 router.post('/:id/cancel', authorize(['sales.cancel']), controller.cancelSale);
-router.post('/returns', authorize(['sales.create']), controller.createReturnSaleController);
 
 module.exports = router;

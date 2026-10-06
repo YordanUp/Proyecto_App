@@ -23,7 +23,9 @@ const saleSchema = new mongoose.Schema({
   status: { type: String, required: true, enum: ['draft', 'confirmed', 'cancelled'], default: 'draft', index: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   confirmedAt: { type: Date, default: null },
-  cancelledAt: { type: Date, default: null }
+  cancelledAt: { type: Date, default: null },
+  // Internal serialization counter for concurrent return transactions; it does not alter sale history.
+  returnRevision: { type: Number, min: 0, default: 0, select: false }
 }, { timestamps: true, versionKey: false });
 
 saleSchema.index({ status: 1, createdAt: -1 });

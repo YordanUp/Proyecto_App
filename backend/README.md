@@ -29,7 +29,7 @@ npm test
 
 ## Persistencia real
 
-Usuarios, roles, catálogos, existencias, movimientos de inventario, ventas, compras, cotizaciones, cuentas por cobrar/pagar, movimientos financieros, notificaciones, configuración general, integraciones administrativas, dashboard, reportes analíticos y auditoría usan MongoDB. Solicitudes de devolución y ajustes continúan como prototipos en memoria. El registro de integraciones no conecta ni sincroniza servicios externos, no carga datos demo y rechaza nombres de claves sensibles en su configuración.
+Usuarios, roles, catálogos, existencias, movimientos de inventario, ventas, devoluciones de ventas, compras, cotizaciones, cuentas por cobrar/pagar, movimientos financieros, notificaciones, configuración general, integraciones administrativas, dashboard, reportes analíticos y auditoría usan MongoDB. Algunos ajustes y módulos aún no migrados conservan datos prototipo en memoria. El registro de integraciones no conecta ni sincroniza servicios externos, no carga datos demo y rechaza nombres de claves sensibles en su configuración.
 
 Dashboard (`GET /api/dashboard`, permiso `dashboard.read`) calcula indicadores con ventas confirmadas por día/mes UTC, compras, inventario y cuentas financieras, e incluye listas recientes. Los reportes (`GET /api/reports/data/:type`, permiso `reports.read`) permiten consultar ventas, compras, existencias, movimientos de inventario, CxC, CxP y movimientos financieros con filtros, orden, paginación y totales. El endpoint `/export.csv` respeta esos filtros, limita la exportación a 10,000 filas y registra la acción en auditoría.
 
@@ -69,7 +69,22 @@ Las cotizaciones se guardan en MongoDB en `Quotation`; ya no se sirven desde dat
 
 La conversión solo admite cotizaciones `accepted` y, en una única transacción, crea una venta normal `draft`, enlaza `saleId`, actualiza la cotización a `converted` y registra auditoría. Convertir no descuenta inventario ni crea cuentas por cobrar o movimientos financieros; esos efectos ocurren al confirmar después la venta con el flujo existente. Los eventos de cotización usan `quotation.create`, `quotation.update`, `quotation.send`, `quotation.accept`, `quotation.reject`, `quotation.cancel` y `quotation.convert`. Para instalar/verificar índices en la base configurada, ejecutar `npm run db:indexes`.
 
-Las solicitudes de devolución continúan siendo demostrativas y mantienen su almacenamiento heredado en memoria; están fuera de esta fase.
+### Devoluciones persistentes
+
+`SalesReturn` guarda devoluciones ya procesadas e inmutables con folio `DEV-AAAA-######`, motivo, notas, partidas y snapshots calculados desde una venta confirmada. Endpoints autenticados: `GET /api/sales/returns` (filtros `search`, `saleId`, `customerId`, `from`, `to`, paginación y orden), `GET /api/sales/returns/:id` y `POST /api/sales/returns`. Lectura requiere `sales.returns.read`; creación requiere `sales.returns.create`. Los roles operativos `ventas` reciben lectura y creación, `supervisor` solo lectura y admin todos los permisos después de ejecutar la sincronización administrativa documentada abajo. No hay cancelación porque una devolución procesada afecta stock y CxC y se conserva inmutable; esta fase tampoco emite reembolsos externos ni notas fiscales.
+
+El servidor valida la cantidad contra devoluciones procesadas. Si se repite una combinación producto/almacén dentro de la venta, la solicitud identifica la partida con `saleLineIndex`; de otro modo la combinación identifica la línea. Cada línea devuelve precios e impuestos originales. La transacción crea el documento, repone el mismo almacén mediante movimiento `SALE_RETURN`, ajusta CxC, audita y notifica. Un contador técnico serializa devoluciones concurrentes por venta sin modificar el estado ni los importes históricos. Si pagos ya recibidos superan el nuevo total neto, responde `409 RETURN_REQUIRES_REFUND_REVIEW` y revierte toda la operación. Una venta con devoluciones procesadas no puede cancelarse por el flujo existente, que de otra manera repondría stock dos veces; devuelve `409 SALE_HAS_RETURNS`.
+
+Tras desplegar esta versión, sincroniza permisos en este orden. Primero inspecciona los cambios al admin, luego aplica la adición segura y sincroniza los roles operativos:
+
+```sh
+npm run db:sync-admin-permissions -- --dry-run
+npm run db:sync-admin-permissions -- --apply
+npm run db:seed-operational-roles -- --dry-run
+npm run db:seed-operational-roles -- --apply
+```
+
+`src/data/sales.js` y `src/services/legacySalesService.js` se eliminaron después de confirmar que solo alimentaban el endpoint de devoluciones demo; no se migraron sus datos temporales.
 
 ## Notificaciones persistentes
 

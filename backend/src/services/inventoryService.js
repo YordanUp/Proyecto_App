@@ -84,6 +84,7 @@ function serializeMovement(movement) {
     type: movement.type, quantity: movement.quantity, previousQuantity: movement.previousQuantity,
     newQuantity: movement.newQuantity, reason: movement.reason,
     referenceType: movement.referenceType, referenceId: movement.referenceId,
+    saleId: movement.saleId ? String(movement.saleId) : undefined, saleFolio: movement.saleFolio,
     transferId: movement.transferId, userId: String(user?._id || movement.userId),
     user: user ? { id: String(user._id), name: user.name } : null, createdAt: movement.createdAt
   };
@@ -121,10 +122,10 @@ async function ensureStock(product, warehouse, session) {
   return InventoryStock.findOne({ productId: product._id, warehouseId: warehouse._id }).session(session);
 }
 
-async function createMovement({ productId, warehouseId, type, quantity, previousQuantity, newQuantity, reason, referenceType, referenceId, transferId = null, userId, session }) {
+async function createMovement({ productId, warehouseId, type, quantity, previousQuantity, newQuantity, reason, referenceType, referenceId, transferId = null, saleId = null, saleFolio = null, userId, session }) {
   const [movement] = await InventoryMovement.create([{
     productId, warehouseId, type, quantity, previousQuantity, newQuantity, reason,
-    referenceType, referenceId, transferId, userId
+    referenceType, referenceId, transferId, saleId, saleFolio, userId
   }], { session });
   return movement;
 }
@@ -315,6 +316,32 @@ async function restoreForSale({ productId: rawProductId, warehouseId: rawWarehou
   return { movement, stock: after };
 }
 
+async function restoreForSalesReturn({ productId: rawProductId, warehouseId: rawWarehouseId, quantity: rawQuantity, saleId, saleFolio, returnId, returnFolio, userId: rawUserId, session }) {
+  assertTransactionSession(session);
+  const productId = idValue(rawProductId, 'productId');
+  const warehouseId = idValue(rawWarehouseId, 'warehouseId');
+  const saleObjectId = idValue(saleId, 'saleId');
+  const userId = idValue(rawUserId, 'usuario');
+  const quantity = positiveQuantity(rawQuantity);
+  let before = await InventoryStock.findOne({ productId, warehouseId }).session(session);
+  if (!before) {
+    const product = await Product.findById(productId).select('minStock').session(session);
+    await InventoryStock.updateOne({ productId, warehouseId }, {
+      $setOnInsert: { productId, warehouseId, quantity: 0, reservedQuantity: 0, minimumStock: product?.minStock || 0 }
+    }, { upsert: true, session, runValidators: true });
+    before = await InventoryStock.findOne({ productId, warehouseId }).session(session);
+  }
+  const after = await InventoryStock.findOneAndUpdate({ _id: before._id }, { $inc: { quantity } }, { new: true, runValidators: true, session });
+  if (!after) throw inventoryError(409, 'INVENTORY_CONFLICT', 'No fue posible restaurar las existencias de la devolución');
+  const movement = await createMovement({
+    productId, warehouseId, type: 'SALE_RETURN', quantity, previousQuantity: before.quantity, newQuantity: after.quantity,
+    reason: `Devolución ${returnFolio} de venta ${saleFolio}`, referenceType: 'salesReturn', referenceId: String(returnId),
+    saleId: saleObjectId, saleFolio, userId, session
+  });
+  await auditMovement({ userId, action: 'inventory.sales_return', movement, stockBefore: before, stockAfter: after, session });
+  return { movement, stock: after };
+}
+
 async function receiveForPurchase({ productId: rawProductId, warehouseId: rawWarehouseId, quantity: rawQuantity, purchaseId, folio, userId: rawUserId, session }) {
   assertTransactionSession(session);
   const productId = idValue(rawProductId, 'productId');
@@ -407,4 +434,4 @@ async function listMovements(query = {}) {
   return { items: movements.map(serializeMovement), pagination: { page, limit, total, pages: Math.ceil(total / limit) } };
 }
 
-module.exports = { listInventory, listWarehouses, listMovements, addEntry, addExit, adjustStock, transferStock, consumeForSale, restoreForSale, receiveForPurchase, inventoryError };
+module.exports = { listInventory, listWarehouses, listMovements, addEntry, addExit, adjustStock, transferStock, consumeForSale, restoreForSale, restoreForSalesReturn, receiveForPurchase, inventoryError };

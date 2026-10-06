@@ -1,5 +1,17 @@
 # Auditoría técnica del ERP YordanUp
 
+> **Corte vigente — 6 de octubre de 2026:** el informe de abajo conserva su snapshot histórico del 28 de septiembre y sus afirmaciones sobre módulos simulados ya no representan el estado actual. Desde ese corte, Inventario, Ventas, Compras, Finanzas, Dashboard/Reportes, Notificaciones, Configuración e Integraciones se migraron a persistencia; esta fase agrega Devoluciones de ventas persistentes con transacciones y flujos Web/Mobile. El reporte de ventas todavía presenta importes brutos. Devolución de compras, reembolsos externos y notas fiscales siguen fuera de alcance.
+
+## Estado vigente de la fase de devoluciones
+
+- Backend: `SalesReturn`, folio anual, índices, listado/detalle/creación, RBAC explícito, auditoría, notificaciones, reposición `SALE_RETURN` y ajuste transaccional de CxC.
+- Concurrencia: dos solicitudes concurrentes compiten sobre una revisión interna de la venta; la segunda recalcula las cantidades procesadas. Totales, estado y snapshots históricos de `Sale` no cambian.
+- Riesgos financieros: si pagos recibidos exceden la venta neta, se rechaza con `409 RETURN_REQUIRES_REFUND_REVIEW`; una venta con devoluciones procesadas no permite la cancelación total que repondría el stock otra vez.
+- Clientes: Web y Mobile permiten consultar y crear devoluciones, muestran el detalle y la disponibilidad por línea. Los permisos backend siguen siendo autoridad.
+- Decisión: devoluciones procesadas son inmutables. No se expone cancelación, reembolso bancario ni nota fiscal.
+- Verificación de esta fase: backend `npm.cmd test -- --test-concurrency=1`, frontend `npm.cmd test`/`npm.cmd run build`, Mobile `npm.cmd test`/`npm.cmd run lint`/`npm.cmd run typecheck` y `git diff --check`.
+- Migración RBAC: aplicar en el entorno objetivo `db:sync-admin-permissions` y después `db:seed-operational-roles`, primero con `--dry-run`; los permisos nuevos no se agregan directamente a usuarios.
+
 **Fecha:** 28 de septiembre de 2026  
 **Alcance:** inspección estática de repositorio, configuración, rutas, controladores, servicios, modelos, pruebas, documentación y frontend. No se conectó a MongoDB Atlas ni se ejecutó una prueba de integración contra una base real.
 
@@ -32,7 +44,7 @@ La conexión está configurada para fallar si no hay `MONGODB_URI` fuera de prue
 
 ### Alto — la operación principal aún es simulada
 
-Existen rutas y páginas para inventario, ventas, compras y finanzas, pero sus servicios consumen seeds en `backend/src/data/`. El dashboard también muestra métricas de muestra. No se deben interpretar como registros persistentes, ni emplear esas pantallas para operar datos reales. Se conservaron las funcionalidades heredadas y se marcaron como demostrativas en navegación/dashboard; la migración debe ser por etapas.
+Inventario, ventas, compras, finanzas y dashboard/reportes ya consumen datos persistentes. Devoluciones de ventas también persisten ahora con una operación transaccional; los ajustes que aún dependan de datos demo deben identificarse de forma puntual por módulo. Este documento conserva una auditoría histórica anterior y requiere actualización integral en una revisión dedicada.
 
 ### Alto — falta evidencia de integración real con MongoDB
 

@@ -22,7 +22,15 @@ Los catálogos ofrecen `GET`, `GET /:id`, `POST`, `PUT /:id` y `DELETE /:id` (ba
 
 `GET /api/reports/data/:type` requiere `reports.read`. Tipos: `sales`, `purchases`, `inventory-stock`, `inventory-movements`, `receivables`, `payables`, `finance-movements`. Admite `from`, `to`, `status`, `customer`, `supplier`, `product`, `warehouse`, `movementType`, `lowStock=true`, `search`, `sortBy`, `sortOrder`, `page` y `limit` cuando aplican. Los filtros de cliente/proveedor/producto/almacén aceptan ObjectId o nombre; fechas de calendario (`YYYY-MM-DD`) se interpretan en UTC e incluyen el día final. La fecha de ventas/compras es la de creación; cuentas y movimientos usan su `createdAt`, y el inventario usa `updatedAt`. Responde con `data`, `pagination` y `totals` sobre el conjunto filtrado.
 
-`GET /api/reports/data/:type/export.csv` exporta los mismos filtros, registra `report.exported` en auditoría y limita el archivo a 10,000 registros. CSV incluye cabeceras, escape de comillas y protección contra fórmulas de hoja de cálculo. `GET /api/reports/audit` consulta auditoría persistente, paginada y de solo lectura. Configuración ofrece `GET /api/settings` (permiso `settings.read`) y `PUT /api/settings/:key` (permiso `settings.update`), limitado a cuatro preferencias generales; cambios quedan auditados. Notificaciones son persistentes; las solicitudes de devolución y ajustes prototipo se describen en README.
+`GET /api/reports/data/:type/export.csv` exporta los mismos filtros, registra `report.exported` en auditoría y limita el archivo a 10,000 registros. CSV incluye cabeceras, escape de comillas y protección contra fórmulas de hoja de cálculo. `GET /api/reports/audit` consulta auditoría persistente, paginada y de solo lectura. Configuración ofrece `GET /api/settings` (permiso `settings.read`) y `PUT /api/settings/:key` (permiso `settings.update`), limitado a cuatro preferencias generales; cambios quedan auditados. Notificaciones son persistentes.
+
+## Devoluciones de ventas
+
+- `GET /api/sales/returns` — requiere `sales.returns.read`; acepta `search`, `saleId`, `customerId`, `from`, `to`, `page`, `limit`, `sort` y `order`.
+- `GET /api/sales/returns/:id` — detalle; requiere `sales.returns.read`.
+- `POST /api/sales/returns` — requiere `sales.returns.create`; recibe `saleId`, `reason`, `notes` opcionales e `items` con `productId`, `warehouseId`, `quantity` y `saleLineIndex` opcional cuando se repite producto/almacén en la venta.
+
+Solo acepta ventas confirmadas. El backend calcula precio/impuestos desde la venta, verifica la cantidad acumulada y procesa documento, stock, CxC, auditoría y notificaciones en una transacción. No ofrece cancelación, reembolso externo ni nota fiscal. Si los pagos ya superan el nuevo total neto, responde `409 RETURN_REQUIRES_REFUND_REVIEW` sin guardar cambios.
 
 ## Integraciones persistentes
 

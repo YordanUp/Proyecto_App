@@ -1,7 +1,7 @@
 const ROLE_DEFINITIONS = Object.freeze({
   ventas: {
     description: 'Gestión de ventas, clientes y consulta de existencias.',
-    permissions: ['dashboard.read', 'products.read', 'categories.read', 'clients.read', 'clients.create', 'clients.update', 'inventory.read', 'sales.read', 'sales.create', 'sales.update', 'sales.cancel', 'reports.read']
+    permissions: ['dashboard.read', 'products.read', 'categories.read', 'clients.read', 'clients.create', 'clients.update', 'inventory.read', 'sales.read', 'sales.create', 'sales.update', 'sales.cancel', 'sales.returns.read', 'sales.returns.create', 'reports.read']
   },
   compras: {
     description: 'Gestión y recepción de compras y proveedores.',
@@ -17,7 +17,7 @@ const ROLE_DEFINITIONS = Object.freeze({
   },
   supervisor: {
     description: 'Consulta de operación y reportes sin permisos de escritura.',
-    permissions: ['dashboard.read', 'products.read', 'categories.read', 'clients.read', 'suppliers.read', 'warehouses.read', 'inventory.read', 'sales.read', 'purchases.read', 'finance.read', 'reports.read', 'integrations.read']
+    permissions: ['dashboard.read', 'products.read', 'categories.read', 'clients.read', 'suppliers.read', 'warehouses.read', 'inventory.read', 'sales.read', 'sales.returns.read', 'purchases.read', 'finance.read', 'reports.read', 'integrations.read']
   }
 });
 

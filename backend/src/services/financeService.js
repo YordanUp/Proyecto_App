@@ -294,8 +294,27 @@ async function cancelReceivableForSale({ saleId, userId, session }) {
   return account;
 }
 
+async function applySalesReturn({ sale, returnAmount, cumulativeReturnTotal, userId, session }) {
+  if (!session?.inTransaction()) throw new Error('El ajuste por devolución requiere una transacción activa');
+  const account = await AccountsReceivable.findOne({ sale: sale._id }).session(session);
+  if (!account) throw financeError(409, 'RECEIVABLE_NOT_FOUND', 'La venta confirmada no tiene una cuenta por cobrar asociada');
+  const newNetTotal = money(Number(sale.total) - Number(cumulativeReturnTotal));
+  if (newNetTotal < 0 || money(account.paidAmount) > newNetTotal) {
+    throw financeError(409, 'RETURN_REQUIRES_REFUND_REVIEW', 'La devolución requiere revisar el reembolso de pagos ya recibidos');
+  }
+  const before = { originalAmount: account.originalAmount, paidAmount: account.paidAmount, balance: account.balance, status: account.status };
+  account.originalAmount = newNetTotal;
+  account.balance = money(newNetTotal - account.paidAmount);
+  account.status = account.balance === 0 ? 'paid' : account.paidAmount > 0 ? 'partial' : 'pending';
+  account.paidAt = account.balance === 0 && account.paidAmount > 0 ? account.paidAt : null;
+  await account.save({ session });
+  await recordAudit({ userId, action: 'receivable.sales_return_applied', module: 'finance', recordId: account.id,
+    before, after: { originalAmount: account.originalAmount, paidAmount: account.paidAmount, balance: account.balance, status: account.status }, session });
+  return account;
+}
+
 module.exports = {
-  createReceivableForSale, createPayableForPurchase, cancelReceivableForSale,
+  createReceivableForSale, createPayableForPurchase, cancelReceivableForSale, applySalesReturn,
   listReceivables: query => listAccounts('receivable', query),
   getReceivable: id => getAccount('receivable', id),
   payReceivable: (id, input, actorId) => recordPayment('receivable', id, input, actorId),
