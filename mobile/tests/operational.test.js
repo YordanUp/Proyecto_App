@@ -9,6 +9,29 @@ function recorder(response = { success: true, data: { id: 'record-1' } }) {
   return { request, calls };
 }
 
+test('SET-MOB-001/002: configuración mobile consulta y actualiza keys permitidas por la API', async () => {
+  const settings = [{ key: 'company_name', value: 'ERP Modular' }];
+  const { request, calls } = recorder({ success: true, data: settings });
+  assert.deepEqual(await api.listSystemSettings(request), settings);
+  await api.updateSystemSetting(request, 'company_name', 'YordanUp');
+  assert.deepEqual(calls.map(({ path, options }) => [path, options.method || 'GET', options.body]), [
+    ['/api/settings', 'GET', undefined], ['/api/settings/company_name', 'PUT', { value: 'YordanUp' }]
+  ]);
+});
+
+test('SET-MOB-003: settings.update habilita edición y settings.read permite consulta independiente', () => {
+  const viewer = { permissions: ['settings.read'] };
+  const editor = { permissions: ['settings.read', 'settings.update'] };
+  assert.equal(hasPermission(viewer, 'settings.read'), true);
+  assert.equal(hasPermission(viewer, 'settings.update'), false);
+  assert.equal(hasPermission(editor, 'settings.update'), true);
+});
+
+test('SET-MOB-004: error de configuración de API se propaga para su presentación', async () => {
+  const request = async () => { throw Object.assign(new Error('Sin acceso'), { status: 403 }); };
+  await assert.rejects(api.listSystemSettings(request), error => error.status === 403 && error.message === 'Sin acceso');
+});
+
 test('MOB-DASH-001: dashboard consume métricas y secciones persistidas', async () => {
   const payload = { success: true, data: { metrics: { salesToday: 12 }, recentSales: [], recentFinancialMovements: [], stockAlerts: [] } };
   const { request, calls } = recorder(payload);
