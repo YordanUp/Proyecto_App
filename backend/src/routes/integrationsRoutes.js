@@ -1,12 +1,14 @@
 const express = require('express');
 const { authenticateToken, authorize } = require('../middleware/auth');
-const { getIntegrations, createIntegrationController } = require('../controllers/integrationsController');
+const controller = require('../controllers/integrationsController');
 
 const router = express.Router();
-
 router.use(authenticateToken);
-
-router.get('/', authorize(['integrations.read']), getIntegrations);
-router.post('/', authorize(['integrations.create']), createIntegrationController);
+router.get('/', authorize(['integrations.read']), controller.getIntegrations);
+router.post('/', authorize(['integrations.create']), controller.createIntegration);
+router.get('/:id', authorize(['integrations.read']), controller.getIntegration);
+router.put('/:id', authorize(['integrations.update']), controller.updateIntegration);
+router.post('/:id/enable', authorize(['integrations.update']), controller.enableIntegration);
+router.post('/:id/disable', authorize(['integrations.update']), controller.disableIntegration);
 
 module.exports = router;

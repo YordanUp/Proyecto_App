@@ -17,7 +17,7 @@ const ROLE_DEFINITIONS = Object.freeze({
   },
   supervisor: {
     description: 'Consulta de operación y reportes sin permisos de escritura.',
-    permissions: ['dashboard.read', 'products.read', 'categories.read', 'clients.read', 'suppliers.read', 'warehouses.read', 'inventory.read', 'sales.read', 'purchases.read', 'finance.read', 'reports.read']
+    permissions: ['dashboard.read', 'products.read', 'categories.read', 'clients.read', 'suppliers.read', 'warehouses.read', 'inventory.read', 'sales.read', 'purchases.read', 'finance.read', 'reports.read', 'integrations.read']
   }
 });
 

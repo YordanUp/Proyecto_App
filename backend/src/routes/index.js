@@ -101,7 +101,12 @@ router.get('/', (req, res) => {
         'POST /api/notifications/read-all',
         'GET /api/settings',
         'PUT /api/settings/:key',
-        'GET /api/integrations'
+        'GET /api/integrations',
+        'POST /api/integrations',
+        'GET /api/integrations/:id',
+        'PUT /api/integrations/:id',
+        'POST /api/integrations/:id/enable',
+        'POST /api/integrations/:id/disable'
       ]
     }
   });

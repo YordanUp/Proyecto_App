@@ -62,6 +62,7 @@ test('ROLE-008/009: finanzas puede registrar cobros y pagos sin editar productos
 
 test('ROLE-010: supervisor solo tiene permisos de lectura', () => {
   assert.ok(ROLE_DEFINITIONS.supervisor.permissions.every(permission => permission.endsWith('.read')));
+  assert.ok(ROLE_DEFINITIONS.supervisor.permissions.includes('integrations.read'));
 });
 
 test('ROLE-011: sincronización crea roles y la segunda aplicación es idempotente', async () => {

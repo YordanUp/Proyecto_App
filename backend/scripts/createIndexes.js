@@ -16,6 +16,7 @@ require('../src/models/FinancialMovement');
 require('../src/models/Sequence');
 require('../src/models/Notification');
 require('../src/models/SystemSetting');
+require('../src/models/Integration');
 
 async function main() {
   await connectDatabase();
