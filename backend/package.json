@@ -8,6 +8,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "db:indexes": "node scripts/createIndexes.js",
+    "db:sync-settings": "node scripts/syncSettings.js",
     "db:sync-admin-permissions": "node scripts/syncAdminPermissions.js",
     "db:seed-operational-roles": "node scripts/seedOperationalRoles.js",
     "seed:admin": "node scripts/createInitialAdmin.js",
