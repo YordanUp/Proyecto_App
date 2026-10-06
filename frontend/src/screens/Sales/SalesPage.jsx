@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../../services/api';
 import QuotationsPanel from './QuotationsPanel';
+import ReturnsPanel from './ReturnsPanel';
 
 const PAGE_SIZE = 20;
 const STATUS_LABELS = { draft: 'Borrador', confirmed: 'Confirmada', cancelled: 'Cancelada' };
@@ -101,14 +102,14 @@ function SaleForm({ clients, products, warehouses, loading, loadError, onClose, 
   </div>;
 }
 
-function SaleDetails({ sale, onClose }) {
+function SaleDetails({ sale, onClose, onReturn, canReturn }) {
   return <div className="sales-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
     <section className="card sales-modal" role="dialog" aria-modal="true" aria-labelledby="sale-detail-title">
       <div className="sales-modal-heading"><div><span className="eyebrow">Detalle de venta</span><h3 id="sale-detail-title">{sale.folio}</h3></div><button type="button" className="users-icon-button" aria-label="Cerrar" onClick={onClose}>×</button></div>
       <dl className="sales-detail-summary"><div><dt>Cliente</dt><dd>{sale.customer?.name || sale.customerId}</dd></div><div><dt>Estado</dt><dd>{STATUS_LABELS[sale.status] || sale.status}</dd></div><div><dt>Creada</dt><dd>{new Date(sale.createdAt).toLocaleString()}</dd></div></dl>
       <div className="sales-detail-lines"><h4>Partidas</h4>{sale.items.map((item, index) => <div className="sales-detail-line" key={`${item.productId}-${index}`}><span><strong>{item.productNameSnapshot}</strong><small>{item.skuSnapshot} · {item.warehouse?.name || item.warehouseId}</small></span><span>{item.quantity} × {money(item.unitPrice)}<small>Impuesto {money(item.tax)} · Total {money(item.total)}</small></span></div>)}</div>
       <div className="sales-form-totals"><span>Subtotal <strong>{money(sale.subtotal)}</strong></span><span>Impuestos <strong>{money(sale.taxes)}</strong></span><span>Total <strong>{money(sale.total)}</strong></span></div>
-      <div className="sales-modal-actions"><button type="button" className="secondary" onClick={onClose}>Cerrar</button></div>
+      <div className="sales-modal-actions">{sale.status === 'confirmed' && canReturn ? <button type="button" className="users-primary-button" onClick={() => onReturn(sale.id)}>Crear devolución</button> : null}<button type="button" className="secondary" onClick={onClose}>Cerrar</button></div>
     </section>
   </div>;
 }
@@ -125,6 +126,7 @@ export default function SalesPage({ session }) {
   const [notice, setNotice] = useState('');
   const [modal, setModal] = useState('');
   const [activeSale, setActiveSale] = useState(null);
+  const [returnSaleId, setReturnSaleId] = useState('');
   const [catalogs, setCatalogs] = useState({ clients: [], products: [], warehouses: [] });
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState('');
@@ -200,8 +202,8 @@ export default function SalesPage({ session }) {
   }
 
   return <div className="app-shell dashboard-layout sales-page">
-    <nav className="sales-filters" aria-label="Secciones de ventas"><button type="button" className={section === 'sales' ? 'users-primary-button' : 'secondary'} onClick={() => setSection('sales')}>Ventas</button><button type="button" className={section === 'quotations' ? 'users-primary-button' : 'secondary'} onClick={() => setSection('quotations')}>Cotizaciones</button></nav>
-    {section === 'quotations' ? <QuotationsPanel session={session} onViewSale={async saleId => { try { const result = await apiRequest(`/api/sales/${saleId}`); setActiveSale(result.data); setSection('sales'); } catch (saleError) { setError(saleError.message || 'No se pudo consultar la venta creada.'); } }} /> : <>
+    <nav className="sales-filters" aria-label="Secciones de ventas"><button type="button" className={section === 'sales' ? 'users-primary-button' : 'secondary'} onClick={() => setSection('sales')}>Ventas</button><button type="button" className={section === 'quotations' ? 'users-primary-button' : 'secondary'} onClick={() => setSection('quotations')}>Cotizaciones</button>{can(user, 'sales.returns.read') ? <button type="button" className={section === 'returns' ? 'users-primary-button' : 'secondary'} onClick={() => { setReturnSaleId(''); setSection('returns'); }}>Devoluciones</button> : null}</nav>
+    {section === 'quotations' ? <QuotationsPanel session={session} onViewSale={async saleId => { try { const result = await apiRequest(`/api/sales/${saleId}`); setActiveSale(result.data); setSection('sales'); } catch (saleError) { setError(saleError.message || 'No se pudo consultar la venta creada.'); } }} /> : section === 'returns' ? <ReturnsPanel session={session} createFromSaleId={returnSaleId} /> : <>
     {notice ? <p className="inventory-notice" role="status">{notice}</p> : null}
     {error ? <p className="card warning-box" role="alert">{error}</p> : null}
     <section className="card sales-toolbar"><div><h3>Ventas persistentes</h3><p>Los borradores no afectan existencias; confirmar y cancelar registran sus movimientos en una transacción.</p></div>{canCreate ? <button type="button" className="users-primary-button" onClick={openCreate}>+ Nueva venta</button> : null}</section>
@@ -215,6 +217,7 @@ export default function SalesPage({ session }) {
         <td><span className={`sales-status ${sale.status}`}>{STATUS_LABELS[sale.status] || sale.status}</span></td>
         <td className="sales-row-actions"><button type="button" className="secondary" onClick={() => showDetails(sale)}>Detalle</button>
           {sale.status === 'draft' && canCreate ? <button type="button" className="users-primary-button" onClick={() => transition(sale, 'confirm')}>Confirmar</button> : null}
+          {sale.status === 'confirmed' && can(user, 'sales.returns.create') ? <button type="button" className="secondary" onClick={() => { setReturnSaleId(sale.id); setSection('returns'); }}>Crear devolución</button> : null}
           {sale.status !== 'cancelled' && canCancel ? <button type="button" className="sales-danger-button" onClick={() => transition(sale, 'cancel')}>Cancelar</button> : null}
         </td>
       </tr>)}
@@ -222,7 +225,7 @@ export default function SalesPage({ session }) {
       {pagination.pages > 1 ? <nav className="inventory-pagination" aria-label="Paginación de ventas"><span>{pagination.total} ventas · Página {pagination.page} de {pagination.pages}</span><div><button type="button" className="secondary" disabled={page <= 1} onClick={() => setPage(value => value - 1)}>Anterior</button><button type="button" className="secondary" disabled={page >= pagination.pages} onClick={() => setPage(value => value + 1)}>Siguiente</button></div></nav> : null}
     </section>}
     {modal === 'create' ? <SaleForm clients={catalogs.clients} products={catalogs.products} warehouses={catalogs.warehouses} loading={catalogLoading} loadError={catalogError} onClose={() => setModal('')} onCreate={createSale} /> : null}
-    {activeSale ? <SaleDetails sale={activeSale} onClose={() => setActiveSale(null)} /> : null}
+    {activeSale ? <SaleDetails sale={activeSale} onClose={() => setActiveSale(null)} canReturn={can(user, 'sales.returns.create')} onReturn={saleId => { setActiveSale(null); setReturnSaleId(saleId); setSection('returns'); }} /> : null}
     </>}
   </div>;
 }
