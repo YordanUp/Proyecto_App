@@ -39,7 +39,7 @@ const sections = [
       { to: '/audit', label: 'Auditoría', icon: '◷', permissions: ['audit.read'] },
       { to: '/notifications', label: 'Notificaciones', icon: '♧', permissions: ['notifications.read'] },
       { to: '/integrations', label: 'Integraciones', icon: '⤢', demo: true, permissions: ['integrations.read'] },
-      { to: '/settings', label: 'Configuración', icon: '⚙', demo: true, permissions: ['settings.read'] }
+      { to: '/settings', label: 'Configuración', icon: '⚙', permissions: ['settings.read'] }
     ]
   }
 ];
@@ -81,10 +81,10 @@ const pageDescriptions = {
   '/reports': 'Reportes operativos consultados de ventas, compras, inventario y finanzas.',
   '/notifications': 'Notificaciones internas vinculadas a tus permisos y operaciones del ERP.',
   '/integrations': 'Panel demostrativo de integraciones.',
-  '/settings': 'Preferencias de muestra, aún no persistidas.'
+  '/settings': 'Preferencias persistentes del sistema.'
 };
 
-const demoPaths = new Set(['/integrations', '/settings']);
+const demoPaths = new Set(['/integrations']);
 
 function initials(name = '') {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'U';
