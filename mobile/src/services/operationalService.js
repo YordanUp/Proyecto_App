@@ -38,6 +38,8 @@ const getNotificationUnreadCount = async request => (await request('/api/notific
 const getNotification = (request, id) => request(`/api/notifications/${encodeURIComponent(id)}`);
 const markNotificationRead = (request, id) => request(`/api/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' });
 const markAllNotificationsRead = (request) => request('/api/notifications/read-all', { method: 'POST' });
+const listSystemSettings = async request => (await request('/api/settings')).data;
+const updateSystemSetting = (request, key, value) => request(`/api/settings/${encodeURIComponent(key)}`, { method: 'PUT', body: { value } });
 const listPurchases = (request, params) => list(request, '/api/purchases', params);
 const getPurchase = (request, id) => request(`/api/purchases/${encodeURIComponent(id)}`);
 const createPurchase = (request, body) => request('/api/purchases', { method: 'POST', body });
@@ -56,6 +58,7 @@ module.exports = {
   listSales, getSale, createSale, updateSale, confirmSale, cancelSale,
   listQuotations, getQuotation, createQuotation, updateQuotation, sendQuotation, acceptQuotation, rejectQuotation, cancelQuotation, convertQuotation,
   listNotifications, getNotificationUnreadCount, getNotification, markNotificationRead, markAllNotificationsRead,
+  listSystemSettings, updateSystemSetting,
   listPurchases, getPurchase, createPurchase, updatePurchase, orderPurchase, receivePurchase, cancelPurchase,
   listReceivables, listPayables, listFinancialMovements, registerPayment
 };

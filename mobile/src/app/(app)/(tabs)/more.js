@@ -38,6 +38,10 @@ export default function MoreScreen() {
       <SectionTitle title="Catálogos" />
       {accessibleCatalogs.map(([key, item]) => <MenuCard key={key} label={item.label} caption="Registros persistentes" badge="MongoDB" tone="success" onPress={() => router.push(`/catalog/${key}`)} />)}
     </> : null}
+    {hasPermission(user, 'settings.read') ? <>
+      <SectionTitle title="Preferencias" />
+      <MenuCard label="Configuración" caption="Preferencias persistentes del sistema" badge="Sistema" tone="success" onPress={() => router.push('/settings')} />
+    </> : null}
     <SectionTitle title="Cuenta" />
     <MenuCard label="Mi perfil" caption={user?.email || 'Usuario'} onPress={() => router.push('/profile')} />
     <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
