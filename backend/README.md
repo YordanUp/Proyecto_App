@@ -29,13 +29,17 @@ npm test
 
 ## Persistencia real
 
-Usuarios, roles, catálogos, existencias, movimientos de inventario, ventas, compras, cotizaciones, cuentas por cobrar/pagar, movimientos financieros, notificaciones, dashboard, reportes analíticos y auditoría usan MongoDB. Solicitudes de devolución, ajustes e integraciones visibles aún son demostrativos; consulta el README raíz antes de usarlos.
+Usuarios, roles, catálogos, existencias, movimientos de inventario, ventas, compras, cotizaciones, cuentas por cobrar/pagar, movimientos financieros, notificaciones, configuración general, dashboard, reportes analíticos y auditoría usan MongoDB. Solicitudes de devolución, ajustes e integraciones visibles aún son demostrativos; consulta el README raíz antes de usarlos.
 
 Dashboard (`GET /api/dashboard`, permiso `dashboard.read`) calcula indicadores con ventas confirmadas por día/mes UTC, compras, inventario y cuentas financieras, e incluye listas recientes. Los reportes (`GET /api/reports/data/:type`, permiso `reports.read`) permiten consultar ventas, compras, existencias, movimientos de inventario, CxC, CxP y movimientos financieros con filtros, orden, paginación y totales. El endpoint `/export.csv` respeta esos filtros, limita la exportación a 10,000 filas y registra la acción en auditoría.
 
-Las operaciones de usuario, rol, catálogo, inventario, ventas y compras escriben el cambio y el evento de auditoría en una transacción. Entradas, salidas y ajustes guardan movimiento y existencia juntos. Una transferencia modifica ambas existencias, crea los dos movimientos y audita en la misma transacción. Confirmar o cancelar una venta actualiza su estado, inventario, movimientos y auditoría en una sola transacción. Recibir una compra actualiza el estado, las existencias, los movimientos de recepción y la auditoría en una sola transacción. Se requiere MongoDB Atlas o MongoDB configurado como replica set.
+Las operaciones de usuario, rol, catálogo, configuración, inventario, ventas y compras escriben el cambio y el evento de auditoría en una transacción. Entradas, salidas y ajustes guardan movimiento y existencia juntos. Una transferencia modifica ambas existencias, crea los dos movimientos y audita en la misma transacción. Confirmar o cancelar una venta actualiza su estado, inventario, movimientos y auditoría en una sola transacción. Recibir una compra actualiza el estado, las existencias, los movimientos de recepción y la auditoría en una sola transacción. Se requiere MongoDB Atlas o MongoDB configurado como replica set.
 
-En producción `autoIndex` está desactivado: después de revisar el entorno ejecuta `npm run db:indexes` para crear los índices declarados de catálogos, inventario, ventas, compras, cuentas financieras, movimientos y secuencias (no elimina índices existentes).
+En producción `autoIndex` está desactivado: después de revisar el entorno ejecuta `npm run db:indexes` para crear los índices declarados de catálogos, configuración, inventario, ventas, compras, cuentas financieras, movimientos y secuencias (no elimina índices existentes).
+
+## Configuración persistente
+
+`SystemSetting` persiste únicamente `company_name`, `currency`, `timezone` y `date_format`. Moneda acepta `MXN`, `USD` o `EUR`; zona horaria `America/Mexico_City` o `UTC`; formato de fecha `DD/MM/YYYY`, `MM/DD/YYYY` o `YYYY-MM-DD`. Los valores iniciales se sincronizan de forma controlada con `npm run db:sync-settings -- --dry-run` y luego `npm run db:sync-settings -- --apply`; el proceso crea solo claves faltantes y conserva personalizaciones. La API permite listar con `GET /api/settings` (`settings.read`) y actualizar una clave permitida mediante `PUT /api/settings/:key` (`settings.update`). Cada cambio y su evento `settings.update` se guardan en una transacción; no existe creación libre ni se aceptan secretos. Moneda, zona horaria y formato de fecha son por ahora informativos y no cambian todos los formatos de pantalla.
 
 ## API y seguridad
 

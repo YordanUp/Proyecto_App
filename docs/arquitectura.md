@@ -10,7 +10,7 @@ La aplicación no escucha hasta conectar MongoDB. El proceso gestiona cierre ord
 
 Persistente: users, roles, categorías, productos, clientes, proveedores, almacenes, existencias, movimientos de inventario, ventas, compras, finanzas, dashboard agregado, reportes y audit logs.
 
-Prototipo con datos en memoria: cotizaciones/solicitudes de devolución, notificaciones, ajustes e integraciones. El registro de reportes simulado fue retirado de la API; el fixture que queda en `src/data/reports.js` no se usa para reportes operativos. Las consultas Mongo están descritas en `docs/api.md`.
+Prototipo con datos en memoria: solicitudes de devolución, ajustes e integraciones. Cotizaciones, notificaciones y preferencias generales de configuración ya persisten en MongoDB. El registro de reportes simulado fue retirado de la API; el fixture que queda en `src/data/reports.js` no se usa para reportes operativos. Las consultas Mongo están descritas en `docs/api.md`.
 
 ## Transacciones
 

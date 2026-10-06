@@ -1,12 +1,12 @@
 const express = require('express');
 const { authenticateToken, authorize } = require('../middleware/auth');
-const { getSettings, createSettingController } = require('../controllers/settingsController');
+const { getSettings, updateSetting } = require('../controllers/settingsController');
 
 const router = express.Router();
 
 router.use(authenticateToken);
 
 router.get('/', authorize(['settings.read']), getSettings);
-router.post('/', authorize(['settings.create']), createSettingController);
+router.put('/:key', authorize(['settings.update']), updateSetting);
 
 module.exports = router;

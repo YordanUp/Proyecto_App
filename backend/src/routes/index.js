@@ -100,7 +100,7 @@ router.get('/', (req, res) => {
         'POST /api/notifications/:id/read',
         'POST /api/notifications/read-all',
         'GET /api/settings',
-        'POST /api/settings',
+        'PUT /api/settings/:key',
         'GET /api/integrations'
       ]
     }

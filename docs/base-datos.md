@@ -27,4 +27,4 @@ Altas y cambios de usuario, roles y catálogos incluyen su auditoría en la mism
 
 ## Migraciones pendientes
 
-Los arrays exportados por `src/data/` permanecen en funciones heredadas prototipo: cotizaciones/devoluciones, notificaciones, ajustes e integraciones. Dashboard y reportes operativos agregan o consultan los modelos persistidos; `reportSeed` es un fixture sin endpoint productivo. La auditoría mostrada por `/api/reports/audit` lee la colección persistente `AuditLog`.
+Los arrays exportados por `src/data/` permanecen en funciones heredadas prototipo: solicitudes de devolución, ajustes e integraciones. Dashboard y reportes operativos agregan o consultan los modelos persistidos; `reportSeed` es un fixture sin endpoint productivo. La auditoría mostrada por `/api/reports/audit` lee la colección persistente `AuditLog`. `SystemSetting` contiene cuatro claves generales con índice único; `db:sync-settings` aplica defaults sin sobrescribir valores existentes.

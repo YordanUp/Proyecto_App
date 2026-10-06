@@ -1,20 +1,21 @@
-const { listSettings, createSetting } = require('../services/settingsService');
-const { successResponse, errorResponse } = require('../utils/response');
+const settingsService = require('../services/settingsService');
+const { successResponse } = require('../utils/response');
 
-function getSettings(req, res) {
-  return successResponse(res, 200, 'Configuración consultada', listSettings());
+async function getSettings(req, res, next) {
+  try { return successResponse(res, 200, 'Configuración consultada correctamente', await settingsService.listSettings()); }
+  catch (error) { return next(error); }
 }
 
-function createSettingController(req, res) {
+async function updateSetting(req, res, next) {
   try {
-    const setting = createSetting(req.body);
-    return successResponse(res, 201, 'Configuración creada correctamente', setting);
-  } catch (error) {
-    return errorResponse(res, 400, error.message, 'SETTING_CREATE_ERROR');
-  }
+    const keys = Object.keys(req.body || {});
+    if (keys.length !== 1 || keys[0] !== 'value') {
+      const error = settingsService.settingError(400, 'VALIDATION_ERROR', 'Envía únicamente el campo value');
+      return next(error);
+    }
+    const setting = await settingsService.updateSetting(req.params.key, req.body.value, req.user.id);
+    return successResponse(res, 200, 'Configuración actualizada correctamente', setting);
+  } catch (error) { return next(error); }
 }
 
-module.exports = {
-  getSettings,
-  createSettingController
-};
+module.exports = { getSettings, updateSetting };
