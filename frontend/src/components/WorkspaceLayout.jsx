@@ -38,7 +38,7 @@ const sections = [
       { to: '/roles', label: 'Roles y permisos', icon: '⌘', permissions: ['roles.read'] },
       { to: '/audit', label: 'Auditoría', icon: '◷', permissions: ['audit.read'] },
       { to: '/notifications', label: 'Notificaciones', icon: '♧', permissions: ['notifications.read'] },
-      { to: '/integrations', label: 'Integraciones', icon: '⤢', demo: true, permissions: ['integrations.read'] },
+      { to: '/integrations', label: 'Integraciones', icon: '⤢', permissions: ['integrations.read'] },
       { to: '/settings', label: 'Configuración', icon: '⚙', permissions: ['settings.read'] }
     ]
   }
@@ -80,11 +80,9 @@ const pageDescriptions = {
   '/audit': 'Eventos persistentes registrados por el núcleo.',
   '/reports': 'Reportes operativos consultados de ventas, compras, inventario y finanzas.',
   '/notifications': 'Notificaciones internas vinculadas a tus permisos y operaciones del ERP.',
-  '/integrations': 'Panel demostrativo de integraciones.',
+  '/integrations': 'Administración persistente de integraciones y su estado.',
   '/settings': 'Preferencias persistentes del sistema.'
 };
-
-const demoPaths = new Set(['/integrations']);
 
 function initials(name = '') {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'U';
@@ -95,7 +93,6 @@ export default function WorkspaceLayout({ session, onLogout }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const { pathname } = useLocation();
   const pageTitle = pageTitles[pathname] || 'Espacio de trabajo';
-  const isDemo = demoPaths.has(pathname);
   const visibleSections = sections.map(section => ({
     ...section,
     items: section.items.filter(item => hasAnyPermission(session?.user, item.permissions))
@@ -148,7 +145,6 @@ export default function WorkspaceLayout({ session, onLogout }) {
                 >
                   <span className="nav-icon" aria-hidden="true">{item.icon}</span>
                   <span className="nav-label">{item.label}</span>
-                  {item.demo ? <span className="nav-demo">Demo</span> : null}
                 </NavLink>
               ))}
             </div>
@@ -191,21 +187,17 @@ export default function WorkspaceLayout({ session, onLogout }) {
         <main className="erp-content">
           {pathname !== '/' ? <div className="workspace-page-intro">
             <div>
-              <span className="eyebrow">{isDemo ? 'Área demostrativa' : 'Núcleo persistente'}</span>
+              <span className="eyebrow">Núcleo persistente</span>
               <h2>{pageTitle}</h2>
               <p>{pageDescriptions[pathname] || 'Módulo del espacio de trabajo YordanUp.'}</p>
             </div>
-            <span className={`workspace-state${isDemo ? ' demo' : ''}`}>{isDemo ? 'Datos de muestra' : 'Persistente'}</span>
-          </div> : null}
-          {isDemo && pathname !== '/' ? <div className="module-demo-notice" role="note">
-            <span aria-hidden="true">ⓘ</span>
-            <span><strong>Vista demostrativa.</strong> Los datos de esta área no representan registros empresariales persistidos.</span>
+            <span className="workspace-state">Persistente</span>
           </div> : null}
           <Outlet />
         </main>
         <footer className="erp-footer">
           <span>YordanUp ERP</span>
-          <span>Áreas marcadas como Demo utilizan datos de muestra.</span>
+          <span>Operaciones protegidas por permisos del servidor.</span>
         </footer>
       </div>
     </div>

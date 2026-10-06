@@ -528,3 +528,23 @@ label { display: block; margin-bottom: 13px; color: #646a78; font-size: 11px; fo
 @media (prefers-reduced-motion: reduce) {
   .login-panel .auth-form .login-submit { transition: none; }
 }
+
+.integrations-page .sales-filters { align-items: end; }
+.integrations-page .sales-filters label, .integration-form > label, .integration-config-row label { display: grid; gap: 6px; color: #606b7b; font-size: 12px; font-weight: 700; }
+.integrations-page input, .integrations-page select, .integrations-page textarea { min-height: 40px; border: 1px solid #dbe2ea; border-radius: 9px; padding: 8px 10px; color: #202b3b; background: #fff; font: inherit; }
+.integrations-page textarea { min-height: 86px; resize: vertical; }
+.integrations-page .integration-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.integrations-page .integration-actions button, .integrations-page .empty-state button { white-space: nowrap; }
+.integrations-page .integration-slug { display: block; color: #858b98; font-size: 11px; margin-top: 3px; }
+.integration-panel { display: grid; gap: 16px; }
+.integration-panel .sales-toolbar { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+.integration-form { display: grid; gap: 14px; max-width: 760px; }
+.integration-config { display: grid; gap: 10px; border: 1px solid #dbe2ea; border-radius: 10px; padding: 14px; }
+.integration-config legend { padding: 0 6px; color: #26364a; font-weight: 700; }
+.integration-config-row { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(160px, 2fr) auto; align-items: end; gap: 9px; }
+.integration-config small, .integration-meta { color: #6d7787; font-size: 12px; }
+.integration-details { display: grid; grid-template-columns: minmax(150px, 220px) minmax(0, 1fr); gap: 10px 16px; margin: 0; }
+.integration-details dt { color: #6d7787; font-size: 13px; }
+.integration-details dd { margin: 0; overflow-wrap: anywhere; color: #26364a; }
+.integration-details pre { max-width: 100%; overflow: auto; padding: 12px; background: #f3f6f9; border-radius: 8px; }
+@media (max-width: 720px) { .integration-config-row { grid-template-columns: 1fr; } .integration-panel .sales-toolbar { flex-direction: column; } .integration-details { grid-template-columns: 1fr; gap: 5px; } .integration-details dd { margin-bottom: 10px; } }
