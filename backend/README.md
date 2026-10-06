@@ -29,7 +29,7 @@ npm test
 
 ## Persistencia real
 
-Usuarios, roles, catálogos, existencias, movimientos de inventario, ventas, compras, cuentas por cobrar/pagar, movimientos financieros, dashboard, reportes analíticos y auditoría usan MongoDB. Cotizaciones y solicitudes de devolución, notificaciones, ajustes e integraciones visibles aún son demostrativos; consulta el README raíz antes de usarlos.
+Usuarios, roles, catálogos, existencias, movimientos de inventario, ventas, compras, cotizaciones, cuentas por cobrar/pagar, movimientos financieros, notificaciones, dashboard, reportes analíticos y auditoría usan MongoDB. Solicitudes de devolución, ajustes e integraciones visibles aún son demostrativos; consulta el README raíz antes de usarlos.
 
 Dashboard (`GET /api/dashboard`, permiso `dashboard.read`) calcula indicadores con ventas confirmadas por día/mes UTC, compras, inventario y cuentas financieras, e incluye listas recientes. Los reportes (`GET /api/reports/data/:type`, permiso `reports.read`) permiten consultar ventas, compras, existencias, movimientos de inventario, CxC, CxP y movimientos financieros con filtros, orden, paginación y totales. El endpoint `/export.csv` respeta esos filtros, limita la exportación a 10,000 filas y registra la acción en auditoría.
 
@@ -62,6 +62,12 @@ Las cotizaciones se guardan en MongoDB en `Quotation`; ya no se sirven desde dat
 La conversión solo admite cotizaciones `accepted` y, en una única transacción, crea una venta normal `draft`, enlaza `saleId`, actualiza la cotización a `converted` y registra auditoría. Convertir no descuenta inventario ni crea cuentas por cobrar o movimientos financieros; esos efectos ocurren al confirmar después la venta con el flujo existente. Los eventos de cotización usan `quotation.create`, `quotation.update`, `quotation.send`, `quotation.accept`, `quotation.reject`, `quotation.cancel` y `quotation.convert`. Para instalar/verificar índices en la base configurada, ejecutar `npm run db:indexes`.
 
 Las solicitudes de devolución continúan siendo demostrativas y mantienen su almacenamiento heredado en memoria; están fuera de esta fase.
+
+## Notificaciones persistentes
+
+`Notification` guarda notificaciones por usuario, estado (no leída/leída), prioridad, módulo, referencia opcional y metadatos limitados. La API autenticada ofrece `GET /api/notifications` con `status`, `type`, `module`, `page`, `limit`, `sort` y `order`; `GET /api/notifications/unread-count`; `GET /api/notifications/:id`; `POST /api/notifications/:id/read`; `POST /api/notifications/read-all`; y `POST /api/notifications` para crear una notificación con `notifications.create`. Los usuarios solo pueden consultar o marcar sus propios registros; la creación para otro usuario requiere que este exista y esté activo. La acción manual queda auditada.
+
+El sistema crea eventos internos para stock bajo, confirmación de venta, recepción de compra, pagos y conversión de cotización, dentro de la transacción MongoDB de la operación origen. Stock bajo se deduplica por usuario, tipo y existencia mientras haya una notificación no leída. Se requiere el permiso de lectura del módulo correspondiente para recibir esos eventos (`inventory.read`, `sales.read`, `purchases.read`, `finance.read`). La notificación no sustituye la auditoría y actualmente no despacha correo ni push.
 
 ## Compras persistentes
 

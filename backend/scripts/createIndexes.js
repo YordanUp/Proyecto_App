@@ -14,6 +14,7 @@ require('../src/models/AccountsReceivable');
 require('../src/models/AccountsPayable');
 require('../src/models/FinancialMovement');
 require('../src/models/Sequence');
+require('../src/models/Notification');
 
 async function main() {
   await connectDatabase();

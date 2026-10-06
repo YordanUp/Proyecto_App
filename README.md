@@ -4,9 +4,9 @@ ERP modular en evolución. El núcleo de identidad, autorización, catálogos, I
 
 ## Estado real del repositorio
 
-Persisten en MongoDB: usuarios, roles, categorías, productos, clientes, proveedores, almacenes, existencias, movimientos de inventario, ventas, compras, cuentas por cobrar/pagar, movimientos financieros y auditoría. La autenticación consulta el usuario activo y sus permisos actuales en cada petición protegida.
+Persisten en MongoDB: usuarios, roles, categorías, productos, clientes, proveedores, almacenes, existencias, movimientos de inventario, ventas, compras, cotizaciones, cuentas por cobrar/pagar, movimientos financieros, notificaciones y auditoría. La autenticación consulta el usuario activo y sus permisos actuales en cada petición protegida.
 
-Siguen siendo prototipos en memoria: cotizaciones y solicitudes de devolución, notificaciones, ajustes e integraciones. Dashboard y reportes consultan ventas, compras, existencias, cuentas y movimientos financieros persistidos; la exportación CSV registra un evento de auditoría. Las ventas y compras usan folios persistentes y sus transiciones actualizan inventario y crean sus cuentas financieras relacionadas dentro de la misma transacción. Los pagos persisten sus movimientos y auditoría. No se importan datos demo a producción.
+Siguen siendo prototipos en memoria: solicitudes de devolución, ajustes e integraciones. Dashboard y reportes consultan ventas, compras, existencias, cuentas y movimientos financieros persistidos; la exportación CSV registra un evento de auditoría. Las ventas y compras usan folios persistentes y sus transiciones actualizan inventario y crean sus cuentas financieras relacionadas dentro de la misma transacción. Los pagos persisten sus movimientos y auditoría. No se importan datos demo a producción.
 
 ## Tecnologías y estructura
 
@@ -68,6 +68,7 @@ La suite backend incluye pruebas de esquema/hash y suites de integración que so
 - `PATCH /api/auth/password` solicita contraseña actual y una nueva de 12–72 bytes.
 - `POST /api/auth/logout` es stateless: el cliente elimina el JWT; su vencimiento limita la sesión.
 - `POST /api/auth/verify-email` confirma cuentas nuevas; `POST /api/auth/resend-verification` reenvía de forma genérica y limitada. Consulta `backend/README.md` para la configuración de Resend y compatibilidad de usuarios existentes.
+- Notificaciones persistentes: `GET /api/notifications`, `GET /api/notifications/unread-count`, `GET /api/notifications/:id`, `POST /api/notifications/:id/read`, `POST /api/notifications/read-all` y `POST /api/notifications` (permiso `notifications.create`). La bandeja se limita al usuario autenticado; eventos operativos se escriben en la misma transacción que el evento que los genera.
 - Las rutas protegidas consultan el usuario/rol en Mongo. Las respuestas siguen `{ success, message, data }` o `{ success, message, error }`.
 - El catálogo ofrece búsqueda, filtros, orden, paginación (25 por omisión, hasta 100) y eliminación lógica.
 
@@ -77,7 +78,7 @@ La suite backend incluye pruebas de esquema/hash y suites de integración que so
 - `GET /api/reports/data/:type` ofrece reportes `sales`, `purchases`, `inventory-stock`, `inventory-movements`, `receivables`, `payables` y `finance-movements`; admite filtros aplicables, búsqueda, orden y paginación (máximo 100 por página). La respuesta incluye cantidad de registros y totales; movimientos de inventario también incluye entradas/salidas y conteo de movimientos.
 - `GET /api/reports/data/:type/export.csv` exporta el conjunto filtrado hasta 10,000 filas, escapa campos CSV y registra la exportación en la auditoría. Requiere `reports.read`.
 - Los filtros de cliente/proveedor/producto/almacén aceptan ObjectId o nombre. Las fechas `from`/`to` aceptan `YYYY-MM-DD` (UTC) o ISO datetime.
-- El listado/creación heredado de “reportes generados” en memoria fue retirado; las notificaciones siguen siendo un prototipo independiente. `reportSeed` permanece como fixture sin uso productivo.
+- El listado/creación heredado de “reportes generados” en memoria fue retirado. `reportSeed` permanece como fixture sin uso productivo.
 
 ### Roles operativos
 
@@ -87,4 +88,4 @@ La suite backend incluye pruebas de esquema/hash y suites de integración que so
 
 ## Limitaciones y siguiente etapa
 
-Los tests de integración que requieren MongoDB se omiten explícitamente cuando falta `TEST_MONGODB_URI`; no cuentan como aprobados. `backend/src/data/` sigue en uso por módulos prototipo, pero Inventario, Ventas, Compras y Finanzas ya no dependen de seeds en memoria. Finanzas no implementa contabilidad fiscal, conciliación bancaria ni reembolsos.
+Los tests de integración que requieren MongoDB se omiten explícitamente cuando falta `TEST_MONGODB_URI`; no cuentan como aprobados. `backend/src/data/` sigue en uso por módulos prototipo, pero Inventario, Ventas, Compras, Finanzas y Notificaciones ya no dependen de seeds en memoria. Finanzas no implementa contabilidad fiscal, conciliación bancaria ni reembolsos. Las notificaciones actuales son eventos internos persistidos; no envían push ni correo.

@@ -15,6 +15,7 @@ const reportRoutes = require('./reportRoutes');
 const settingsRoutes = require('./settingsRoutes');
 const integrationsRoutes = require('./integrationsRoutes');
 const warehouseRoutes = require('./warehouseRoutes');
+const notificationRoutes = require('./notificationRoutes');
 const { mongoose } = require('../config/database');
 
 const router = express.Router();
@@ -92,7 +93,12 @@ router.get('/', (req, res) => {
         'GET /api/dashboard',
         'GET /api/reports/data/:type',
         'GET /api/reports/data/:type/export.csv',
-        'GET /api/reports/notifications',
+        'GET /api/notifications',
+        'GET /api/notifications/unread-count',
+        'POST /api/notifications',
+        'GET /api/notifications/:id',
+        'POST /api/notifications/:id/read',
+        'POST /api/notifications/read-all',
         'GET /api/settings',
         'POST /api/settings',
         'GET /api/integrations'
@@ -117,5 +123,6 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/reports', reportRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/integrations', integrationsRoutes);
+router.use('/notifications', notificationRoutes);
 
 module.exports = router;

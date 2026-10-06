@@ -15,18 +15,6 @@ const reportSeed = [
   }
 ];
 
-const notificationSeed = [
-  {
-    id: 'nt1',
-    title: 'Pedido pendiente',
-    message: 'Hay 7 órdenes pendientes de aprobación',
-    type: 'warning',
-    read: false,
-    createdAt: '2026-01-03T00:00:00.000Z'
-  }
-];
-
 module.exports = {
-  reportSeed,
-  notificationSeed
+  reportSeed
 };

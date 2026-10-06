@@ -1,7 +1,6 @@
-const { listNotifications, createNotification } = require('../services/legacyNotificationService');
 const reportService = require('../services/reportService');
 const auditService = require('../services/auditService');
-const { successResponse, errorResponse } = require('../utils/response');
+const { successResponse } = require('../utils/response');
 
 async function getDataReport(req, res, next) {
   try {
@@ -19,19 +18,6 @@ async function exportDataReport(req, res, next) {
   } catch (error) { return next(error); }
 }
 
-function getNotifications(req, res) {
-  return successResponse(res, 200, 'Notificaciones consultadas', listNotifications());
-}
-
-function createNotificationController(req, res) {
-  try {
-    const notification = createNotification(req.body);
-    return successResponse(res, 201, 'Notificación creada correctamente', notification);
-  } catch (error) {
-    return errorResponse(res, 400, error.message, 'NOTIFICATION_CREATE_ERROR');
-  }
-}
-
 async function getAuditLogs(req, res, next) {
   try {
     const result = await auditService.listAuditLogs(req.query);
@@ -39,4 +25,4 @@ async function getAuditLogs(req, res, next) {
   } catch (error) { return next(error); }
 }
 
-module.exports = { getDataReport, exportDataReport, getNotifications, createNotificationController, getAuditLogs };
+module.exports = { getDataReport, exportDataReport, getAuditLogs };
