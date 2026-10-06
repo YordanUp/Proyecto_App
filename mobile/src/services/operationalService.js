@@ -40,6 +40,12 @@ const markNotificationRead = (request, id) => request(`/api/notifications/${enco
 const markAllNotificationsRead = (request) => request('/api/notifications/read-all', { method: 'POST' });
 const listSystemSettings = async request => (await request('/api/settings')).data;
 const updateSystemSetting = (request, key, value) => request(`/api/settings/${encodeURIComponent(key)}`, { method: 'PUT', body: { value } });
+const listIntegrations = (request, params) => list(request, '/api/integrations', params);
+const getIntegration = (request, id) => request(`/api/integrations/${encodeURIComponent(id)}`);
+const createIntegration = (request, body) => request('/api/integrations', { method: 'POST', body });
+const updateIntegration = (request, id, body) => request(`/api/integrations/${encodeURIComponent(id)}`, { method: 'PUT', body });
+const enableIntegration = (request, id) => request(`/api/integrations/${encodeURIComponent(id)}/enable`, { method: 'POST' });
+const disableIntegration = (request, id) => request(`/api/integrations/${encodeURIComponent(id)}/disable`, { method: 'POST' });
 const listPurchases = (request, params) => list(request, '/api/purchases', params);
 const getPurchase = (request, id) => request(`/api/purchases/${encodeURIComponent(id)}`);
 const createPurchase = (request, body) => request('/api/purchases', { method: 'POST', body });
@@ -59,6 +65,7 @@ module.exports = {
   listQuotations, getQuotation, createQuotation, updateQuotation, sendQuotation, acceptQuotation, rejectQuotation, cancelQuotation, convertQuotation,
   listNotifications, getNotificationUnreadCount, getNotification, markNotificationRead, markAllNotificationsRead,
   listSystemSettings, updateSystemSetting,
+  listIntegrations, getIntegration, createIntegration, updateIntegration, enableIntegration, disableIntegration,
   listPurchases, getPurchase, createPurchase, updatePurchase, orderPurchase, receivePurchase, cancelPurchase,
   listReceivables, listPayables, listFinancialMovements, registerPayment
 };

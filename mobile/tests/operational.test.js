@@ -157,3 +157,36 @@ test('MOB-FIN-001..006: cuenta y pagos usan los endpoints persistentes y método
   ]);
   assert.deepEqual(calls[3].options.body, { amount: 5, paymentMethod: 'cash', description: 'Abono' });
 });
+
+test('INT-MOB-001..005: lista, detalle, alta, edición y estado usan endpoints reales', async () => {
+  const { request, calls } = recorder({ success: true, data: [{ id: 'integration-1', enabled: false }], pagination: { page: 1, limit: 20, total: 1, pages: 1 } });
+  const page = await api.listIntegrations(request, { search: 'WhatsApp', type: 'messaging', enabled: false, page: 1, limit: 20 });
+  assert.equal(page.items[0].id, 'integration-1');
+  assert.match(calls[0].path, /search=WhatsApp/); assert.match(calls[0].path, /type=messaging/); assert.match(calls[0].path, /enabled=false/);
+  await api.getIntegration(request, 'integration-1');
+  await api.createIntegration(request, { name: 'WhatsApp Business', slug: 'whatsapp-business', type: 'messaging', config: {} });
+  await api.updateIntegration(request, 'integration-1', { name: 'WhatsApp Business MX', type: 'messaging' });
+  await api.enableIntegration(request, 'integration-1'); await api.disableIntegration(request, 'integration-1');
+  assert.deepEqual(calls.map(({ path, options }) => [path.split('?')[0], options.method || 'GET']), [
+    ['/api/integrations', 'GET'], ['/api/integrations/integration-1', 'GET'], ['/api/integrations', 'POST'],
+    ['/api/integrations/integration-1', 'PUT'], ['/api/integrations/integration-1/enable', 'POST'], ['/api/integrations/integration-1/disable', 'POST']
+  ]);
+});
+
+test('INT-MOB-006: acciones mobile se limitan a permisos RBAC del backend', () => {
+  const viewer = { permissions: ['integrations.read'] };
+  const editor = { permissions: ['integrations.read', 'integrations.update'] };
+  const creator = { permissions: ['integrations.read', 'integrations.create'] };
+  assert.equal(hasPermission(viewer, 'integrations.read'), true); assert.equal(hasPermission(viewer, 'integrations.update'), false);
+  assert.equal(hasPermission(editor, 'integrations.update'), true); assert.equal(hasPermission(editor, 'integrations.create'), false);
+  assert.equal(hasPermission(creator, 'integrations.create'), true); assert.equal(hasPermission(creator, 'integrations.update'), false);
+});
+
+test('INT-MOB-007: pantalla de integraciones usa SafeArea/ScrollView, teclado y recarga al volver o refrescar', () => {
+  const fs = require('node:fs'); const path = require('node:path');
+  const source = fs.readFileSync(path.join(__dirname, '../src/app/(app)/integrations/index.js'), 'utf8');
+  assert.match(source, /<Page keyboard refreshing=\{loading\} onRefresh=\{load\}/);
+  assert.match(source, /KeyboardAvoidingView style=\{\{ flex: 1 \}\} behavior=/);
+  assert.match(source, /useFocusEffect\(useCallback\(\(\) => \{ load\(\); \}/);
+  assert.match(source, /listIntegrations\(request/);
+});

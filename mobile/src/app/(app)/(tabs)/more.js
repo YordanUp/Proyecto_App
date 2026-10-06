@@ -42,6 +42,10 @@ export default function MoreScreen() {
       <SectionTitle title="Preferencias" />
       <MenuCard label="Configuración" caption="Preferencias persistentes del sistema" badge="Sistema" tone="success" onPress={() => router.push('/settings')} />
     </> : null}
+    {hasPermission(user, 'integrations.read') ? <>
+      <SectionTitle title="Administración" />
+      <MenuCard label="Integraciones" caption="Registro persistente; sin conexiones externas" badge="MongoDB" tone="success" onPress={() => router.push('/integrations')} />
+    </> : null}
     <SectionTitle title="Cuenta" />
     <MenuCard label="Mi perfil" caption={user?.email || 'Usuario'} onPress={() => router.push('/profile')} />
     <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>

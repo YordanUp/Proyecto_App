@@ -37,7 +37,12 @@ Escanea el QR desde Expo Go. Tunnel ayuda cuando la red local no deja conectar e
 - Ventas: listado, detalle, creación/edición de borradores, confirmación y cancelación mediante `/api/sales`.
 - Compras: listado, detalle, creación/edición de borradores, ordenar, recibir y cancelar mediante `/api/purchases`.
 - Finanzas: cuentas por cobrar/pagar, movimientos y pagos en `/api/finance`.
+- Integraciones: lista, búsqueda/filtro por tipo, detalle, alta, edición y habilitación/deshabilitación según `integrations.read/create/update`; el registro es interno y no conecta proveedores externos.
 - Selectores reutilizan los catálogos persistentes de productos, clientes, proveedores y almacenes.
+
+## Integraciones persistentes
+
+En `Más → Integraciones`, la app consulta la misma colección MongoDB que Web. La lista busca por nombre/slug/responsable y filtra por tipo; pull-to-refresh y cada regreso a la pantalla consultan de nuevo el API. El detalle muestra estado, habilitación, responsable, fechas y configuración pública. Crear requiere `integrations.create`; editar/activar/desactivar requiere `integrations.update`; el backend vuelve a validar cada acción. La configuración rechaza claves de secretos. Las altas empiezan pendientes y deshabilitadas. No se realizan conexiones o sincronizaciones externas.
 
 El servidor calcula y valida los importes definitivos. Confirmar una venta descuenta existencias; recibir una compra suma existencias y registra la cuenta por pagar. Las operaciones de pago y los movimientos permanecen en el backend.
 
