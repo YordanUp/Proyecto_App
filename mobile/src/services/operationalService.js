@@ -23,6 +23,9 @@ const createSale = (request, body) => request('/api/sales', { method: 'POST', bo
 const updateSale = (request, id, body) => request(`/api/sales/${encodeURIComponent(id)}`, { method: 'PUT', body });
 const confirmSale = (request, id) => request(`/api/sales/${encodeURIComponent(id)}/confirm`, { method: 'POST' });
 const cancelSale = (request, id) => request(`/api/sales/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
+const listSalesReturns = (request, params) => list(request, '/api/sales/returns', params);
+const getSalesReturn = (request, id) => request(`/api/sales/returns/${encodeURIComponent(id)}`);
+const createSalesReturn = (request, body) => request('/api/sales/returns', { method: 'POST', body });
 const listQuotations = (request, params) => list(request, '/api/sales/quotations', params);
 const getQuotation = (request, id) => request(`/api/sales/quotations/${encodeURIComponent(id)}`);
 const createQuotation = (request, body) => request('/api/sales/quotations', { method: 'POST', body });
@@ -61,7 +64,7 @@ const registerPayment = (request, kind, id, body) => request(`/api/finance/${kin
 module.exports = {
   buildQuery, list, getDashboard,
   listInventory, listInventoryMovements, createInventoryMovement,
-  listSales, getSale, createSale, updateSale, confirmSale, cancelSale,
+  listSales, getSale, createSale, updateSale, confirmSale, cancelSale, listSalesReturns, getSalesReturn, createSalesReturn,
   listQuotations, getQuotation, createQuotation, updateQuotation, sendQuotation, acceptQuotation, rejectQuotation, cancelQuotation, convertQuotation,
   listNotifications, getNotificationUnreadCount, getNotification, markNotificationRead, markAllNotificationsRead,
   listSystemSettings, updateSystemSetting,

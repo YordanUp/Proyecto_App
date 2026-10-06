@@ -35,6 +35,7 @@ export default function SaleDetailScreen() {
     {!editing && sale.status === 'draft' && hasPermission(user, 'sales.create') ? <ConfirmAction title={busy ? 'Procesando…' : 'Confirmar venta'} disabled={busy} confirmLabel="Confirmar y descontar stock" message="Esta acción descontará inventario y generará una cuenta por cobrar." onConfirm={() => action(confirmSale, 'Venta confirmada.')} /> : null}
     {!editing && sale.status === 'draft' && hasPermission(user, 'sales.cancel') ? <ConfirmAction title="Cancelar borrador" variant="danger" disabled={busy} confirmLabel="Cancelar venta" message="¿Cancelar este borrador? No se puede reactivar desde la app." onConfirm={() => action(cancelSale, 'Venta cancelada.')} /> : null}
     {!editing && sale.status === 'confirmed' && hasPermission(user, 'sales.cancel') ? <ConfirmAction title="Cancelar venta" variant="danger" disabled={busy} confirmLabel="Cancelar venta" message="La cancelación intentará revertir inventario. Si ya hay pagos, el backend puede rechazarla." onConfirm={() => action(cancelSale, 'Venta cancelada.')} /> : null}
+    {!editing && sale.status === 'confirmed' && hasPermission(user, 'sales.returns.create') ? <Button title="Crear devolución" variant="secondary" disabled={busy} onPress={() => router.push({ pathname: '/sales/returns/new', params: { saleId: sale.id } })} /> : null}
     <Button title="Actualizar" variant="secondary" onPress={load} />
   </Page>;
 }
