@@ -33,6 +33,11 @@ const acceptQuotation = (request, id) => quotationAction(request, id, 'accept');
 const rejectQuotation = (request, id) => quotationAction(request, id, 'reject');
 const cancelQuotation = (request, id) => quotationAction(request, id, 'cancel');
 const convertQuotation = (request, id) => quotationAction(request, id, 'convert');
+const listNotifications = (request, params) => list(request, '/api/notifications', params);
+const getNotificationUnreadCount = async request => (await request('/api/notifications/unread-count')).data;
+const getNotification = (request, id) => request(`/api/notifications/${encodeURIComponent(id)}`);
+const markNotificationRead = (request, id) => request(`/api/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' });
+const markAllNotificationsRead = (request) => request('/api/notifications/read-all', { method: 'POST' });
 const listPurchases = (request, params) => list(request, '/api/purchases', params);
 const getPurchase = (request, id) => request(`/api/purchases/${encodeURIComponent(id)}`);
 const createPurchase = (request, body) => request('/api/purchases', { method: 'POST', body });
@@ -50,6 +55,7 @@ module.exports = {
   listInventory, listInventoryMovements, createInventoryMovement,
   listSales, getSale, createSale, updateSale, confirmSale, cancelSale,
   listQuotations, getQuotation, createQuotation, updateQuotation, sendQuotation, acceptQuotation, rejectQuotation, cancelQuotation, convertQuotation,
+  listNotifications, getNotificationUnreadCount, getNotification, markNotificationRead, markAllNotificationsRead,
   listPurchases, getPurchase, createPurchase, updatePurchase, orderPurchase, receivePurchase, cancelPurchase,
   listReceivables, listPayables, listFinancialMovements, registerPayment
 };

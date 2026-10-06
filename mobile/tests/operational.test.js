@@ -87,6 +87,26 @@ test('QUO-MOB-010: acciones de cotización coinciden con permisos de backend', (
   assert.equal(hasPermission(user, 'sales.read'), true); assert.equal(hasPermission(user, 'sales.create'), false); assert.equal(hasPermission(user, 'sales.update'), true); assert.equal(hasPermission(user, 'sales.cancel'), false);
 });
 
+test('NOT-MOB-001..005: bandeja, contador, detalle, lectura y read-all usan API persistente', async () => {
+  const { request, calls } = recorder({ success: true, data: [{ id: 'notification-1', status: 'unread' }], pagination: { page: 1, limit: 20, total: 1, pages: 1 } });
+  const listed = await api.listNotifications(request, { status: 'unread', page: 1, limit: 20 });
+  assert.equal(listed.items[0].id, 'notification-1');
+  await api.getNotificationUnreadCount(request);
+  await api.getNotification(request, 'notification-1');
+  await api.markNotificationRead(request, 'notification-1');
+  await api.markAllNotificationsRead(request);
+  assert.deepEqual(calls.map(({ path, options }) => [path.split('?')[0], options.method || 'GET']), [
+    ['/api/notifications', 'GET'], ['/api/notifications/unread-count', 'GET'], ['/api/notifications/notification-1', 'GET'],
+    ['/api/notifications/notification-1/read', 'POST'], ['/api/notifications/read-all', 'POST']
+  ]);
+  assert.match(calls[0].path, /status=unread/);
+});
+
+test('NOT-MOB-006: la sección de notificaciones respeta notifications.read', () => {
+  assert.equal(hasPermission({ permissions: ['notifications.read'] }, 'notifications.read'), true);
+  assert.equal(hasPermission({ permissions: ['sales.read'] }, 'notifications.read'), false);
+});
+
 test('MOB-PUR-001..006: usa los endpoints reales para crear, ordenar, recibir y cancelar', async () => {
   const { request, calls } = recorder();
   const purchase = { supplierId: 's1', items: [{ productId: 'p1', warehouseId: 'w1', quantity: 2 }] };

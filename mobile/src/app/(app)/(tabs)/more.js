@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
 import { BrandHeader, Button, Card, Page, Pill, SectionTitle } from '../../../components/UI';
 import catalogs from '../../../constants/catalogs';
 import { hasPermission } from '../../../services/permissions';
 import colors from '../../../theme/colors';
+import { getNotificationUnreadCount } from '../../../services/operationalService';
 
 const operationalModules = [
   { label: 'Compras', route: '/(app)/(tabs)/purchases', permission: 'purchases.read' },
@@ -13,7 +14,14 @@ const operationalModules = [
 ];
 
 export default function MoreScreen() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, request } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+  useFocusEffect(useCallback(() => {
+    if (!hasPermission(user, 'notifications.read')) { setUnreadCount(0); return undefined; }
+    let active = true;
+    getNotificationUnreadCount(request).then(result => { if (active) setUnreadCount(Number(result.count) || 0); }).catch(() => { if (active) setUnreadCount(0); });
+    return () => { active = false; };
+  }, [request, user]));
   const accessibleCatalogs = Object.entries(catalogs).filter(([, definition]) => hasPermission(user, definition.permission));
   const accessibleModules = operationalModules.filter(item => hasPermission(user, item.permission));
   return <Page>
@@ -21,6 +29,10 @@ export default function MoreScreen() {
     {accessibleModules.length ? <>
       <SectionTitle title="Otros módulos" />
       {accessibleModules.map(item => <MenuCard key={item.route} label={item.label} caption="Operaciones persistentes" badge="En línea" tone="success" onPress={() => router.push(item.route)} />)}
+    </> : null}
+    {hasPermission(user, 'notifications.read') ? <>
+      <SectionTitle title="Notificaciones" />
+      <MenuCard label="Centro de notificaciones" caption={`${unreadCount} sin leer`} badge={unreadCount > 99 ? '99+' : String(unreadCount)} tone={unreadCount ? undefined : 'success'} onPress={() => router.push('/notifications')} />
     </> : null}
     {accessibleCatalogs.length ? <>
       <SectionTitle title="Catálogos" />
