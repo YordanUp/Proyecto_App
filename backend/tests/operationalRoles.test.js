@@ -38,7 +38,7 @@ test('ROLE-001: admin conserva todos sus permisos y no es alterado', async () =>
 });
 
 test('ROLE-002/003: ventas recibe exactamente su matriz y no puede crear productos', () => {
-  assert.deepEqual(ROLE_DEFINITIONS.ventas.permissions, ['dashboard.read', 'products.read', 'categories.read', 'clients.read', 'clients.create', 'clients.update', 'inventory.read', 'sales.read', 'sales.create', 'sales.update', 'sales.cancel', 'reports.read']);
+  assert.deepEqual(ROLE_DEFINITIONS.ventas.permissions, ['dashboard.read', 'products.read', 'categories.read', 'clients.read', 'clients.create', 'clients.update', 'inventory.read', 'sales.read', 'sales.create', 'sales.update', 'sales.cancel', 'sales.returns.read', 'sales.returns.create', 'reports.read']);
   assert.equal(ROLE_DEFINITIONS.ventas.permissions.includes('products.create'), false);
   assert.equal(ROLE_DEFINITIONS.ventas.permissions.some(permission => permission.startsWith('purchases.')), false);
 });

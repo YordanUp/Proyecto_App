@@ -90,6 +90,39 @@ test('MOB-SALE-006: cada acción requiere permiso de UI coincidente con backend'
   assert.equal(hasPermission(user, 'sales.cancel'), false);
 });
 
+test('RET-MOB-001..003/005: lista, consulta detalle y procesa devoluciones por endpoints protegidos', async () => {
+  const { request, calls } = recorder({ success: true, data: [{ id: 'return-1' }], pagination: { page: 1, limit: 20, total: 1, pages: 1 } });
+  const listed = await api.listSalesReturns(request, { saleId: 'sale-1', page: 1, limit: 20 });
+  assert.equal(listed.items[0].id, 'return-1');
+  await api.getSalesReturn(request, 'return-1');
+  const payload = { saleId: 'sale-1', reason: 'Producto sin uso', items: [{ productId: 'p1', warehouseId: 'w1', saleLineIndex: 0, quantity: 2 }] };
+  await api.createSalesReturn(request, payload);
+  assert.deepEqual(calls.map(({ path, options }) => [path.split('?')[0], options.method || 'GET']), [
+    ['/api/sales/returns', 'GET'], ['/api/sales/returns/return-1', 'GET'], ['/api/sales/returns', 'POST']
+  ]);
+  assert.match(calls[0].path, /saleId=sale-1/);
+  assert.deepEqual(calls[2].options.body, payload);
+});
+
+test('RET-MOB-005/006: devolución oculta acciones sin permiso y usa SafeArea, teclado, scroll y recarga', () => {
+  const fs = require('node:fs'); const path = require('node:path');
+  const saleDetail = fs.readFileSync(path.join(__dirname, '../src/app/(app)/sales/[id].js'), 'utf8');
+  const list = fs.readFileSync(path.join(__dirname, '../src/app/(app)/sales/returns/index.js'), 'utf8');
+  const create = fs.readFileSync(path.join(__dirname, '../src/app/(app)/sales/returns/new.js'), 'utf8');
+  const tabs = fs.readFileSync(path.join(__dirname, '../src/app/(app)/(tabs)/_layout.js'), 'utf8');
+  const sales = fs.readFileSync(path.join(__dirname, '../src/app/(app)/(tabs)/sales.js'), 'utf8');
+  assert.match(saleDetail, /hasPermission\(user, 'sales\.returns\.create'\)/);
+  assert.match(saleDetail, /Crear devolución/);
+  assert.match(tabs, /sales\.read/);
+  assert.match(sales, /hasPermission\(user, 'sales\.returns\.read'\)/);
+  assert.match(list, /hasPermission\(user, 'sales\.returns\.create'\)/);
+  assert.match(list, /useFocusEffect\(useCallback\(\(\) => \{ load\(\); \}/);
+  assert.match(list, /<Page refreshing=\{loading\} onRefresh=\{\(\) => load\(\)\}>/);
+  assert.match(create, /KeyboardAvoidingView/);
+  assert.match(create, /<Page keyboard refreshing=\{loading\} onRefresh=\{load\}>/);
+  assert.match(create, /const available = Math\.max\(0, Number\(line\.quantity\) - returned\)/);
+});
+
 test('QUO-MOB-001..009: cada operación de cotización utiliza el endpoint persistente correcto', async () => {
   const { request, calls } = recorder();
   await api.listQuotations(request, { page: 2, status: 'accepted', search: 'COT-1' });
