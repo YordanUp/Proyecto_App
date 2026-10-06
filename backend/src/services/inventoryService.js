@@ -3,6 +3,7 @@ const InventoryStock = require('../models/InventoryStock');
 const InventoryMovement = require('../models/InventoryMovement');
 const { Product, Warehouse } = require('../models/catalog');
 const { recordAudit } = require('./auditService');
+const { notifyPermission } = require('./notificationService');
 
 const MAX_PAGE_SIZE = 100;
 const REFERENCE_TYPES = new Set(['manual', 'sale', 'purchase', 'return']);
@@ -135,6 +136,20 @@ async function auditMovement({ userId, action, movement, stockBefore, stockAfter
     after: { movementId: movement.id, type: movement.type, quantity: movement.quantity, previousQuantity: movement.previousQuantity, newQuantity: movement.newQuantity, reason: movement.reason, referenceType: movement.referenceType, referenceId: movement.referenceId, quantityOnHand: stockAfter.quantity },
     session
   });
+  await notifyLowStock(movement, stockAfter, session);
+}
+
+async function notifyLowStock(movement, stock, session) {
+  const available = Number(stock.quantity) - Number(stock.reservedQuantity || 0);
+  const minimum = Number(stock.minimumStock || 0);
+  if (available > minimum) return;
+  const product = await Product.findById(movement.productId).select('name code').session(session).lean();
+  await notifyPermission('inventory.read', {
+    type: 'inventory.low_stock', title: 'Existencia por debajo del mínimo',
+    message: `${product?.name || 'Producto'} (${product?.code || movement.productId}) tiene ${available} unidades disponibles; mínimo ${minimum}.`,
+    module: 'inventory', recordId: String(stock._id), priority: 'high',
+    metadata: { productId: String(movement.productId), warehouseId: String(movement.warehouseId), quantity: available, minimumStock: minimum }
+  }, { session, deduplicateUnread: true });
 }
 
 async function addEntry(data, actorId) {
@@ -242,6 +257,8 @@ async function transferStock(data, actorId) {
       after: { transferId, quantity, reason, referenceType: referenceInfo.referenceType, referenceId: referenceInfo.referenceId, outMovementId: outMovement.id, inMovementId: inMovement.id, sourceQuantity: sourceAfter.quantity, destinationQuantity: destinationAfter.quantity },
       session
     });
+    await notifyLowStock(outMovement, sourceAfter, session);
+    await notifyLowStock(inMovement, destinationAfter, session);
     return { transferId, movements: [serializeMovement(outMovement), serializeMovement(inMovement)], stocks: [serializeStock(sourceAfter), serializeStock(destinationAfter)] };
   });
 }

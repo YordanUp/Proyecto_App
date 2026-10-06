@@ -4,6 +4,7 @@ const Sequence = require('../models/Sequence');
 const { Product, Supplier, Warehouse } = require('../models/catalog');
 const inventoryService = require('./inventoryService');
 const { recordAudit } = require('./auditService');
+const { notifyPermission } = require('./notificationService');
 const financeService = require('./financeService');
 
 const MAX_PAGE_SIZE = 100;
@@ -210,6 +211,10 @@ async function receivePurchase(id, actorId) {
     await purchase.save({ session });
     await financeService.createPayableForPurchase({ purchase, userId, session });
     await recordAudit({ userId, action: 'purchase.received', module: 'purchases', recordId: purchase.id, before, after: purchase, session });
+    await notifyPermission('purchases.read', {
+      type: 'purchases.received', title: 'Compra recibida', message: `La compra ${purchase.folio} fue recibida.`,
+      module: 'purchases', recordId: purchase.id, priority: 'normal', metadata: { folio: purchase.folio }
+    }, { session });
     return serializePurchase(purchase);
   });
 }

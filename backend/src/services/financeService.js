@@ -7,6 +7,7 @@ const { Client, Supplier } = require('../models/catalog');
 const Sale = require('../models/Sale');
 const Purchase = require('../models/Purchase');
 const { recordAudit } = require('./auditService');
+const { notifyPermission } = require('./notificationService');
 
 const MAX_PAGE_SIZE = 100;
 const PAYMENT_METHODS = new Set(['cash', 'transfer', 'card', 'check', 'other']);
@@ -269,6 +270,13 @@ async function recordPayment(kind, id, input, actorId) {
     await recordAudit({ userId, action: receivable ? 'receivable.payment' : 'payable.payment', module: 'finance', recordId: updated.id, before, after: updated, session });
     if (status === 'paid') await recordAudit({ userId, action: receivable ? 'receivable.paid' : 'payable.paid', module: 'finance', recordId: updated.id, before, after: updated, session });
     await recordAudit({ userId, action: 'finance.movement.created', module: 'finance', recordId: movement.id, after: movementValues, session });
+    await notifyPermission('finance.read', {
+      type: receivable ? 'finance.payment_received' : 'finance.payment_sent',
+      title: receivable ? 'Pago recibido' : 'Pago a proveedor realizado',
+      message: `${receivable ? 'Se recibió un pago de' : 'Se registró un pago a'} ${amount.toFixed(2)} para ${updated.folio}.`,
+      module: 'finance', recordId: movement.id, priority: 'normal',
+      metadata: { amount, accountId: String(updated._id), movementType: movementValues.type }
+    }, { session });
     return { account: serializeAccount(updated, kind), movement: serializeMovement(movement) };
   });
 }

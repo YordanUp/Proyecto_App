@@ -4,6 +4,7 @@ const Sequence = require('../models/Sequence');
 const { Client } = require('../models/catalog');
 const salesService = require('./salesService');
 const { recordAudit } = require('./auditService');
+const { notifyPermission } = require('./notificationService');
 
 const MAX_PAGE_SIZE = 100;
 const STATUSES = ['draft', 'sent', 'accepted', 'rejected', 'converted', 'cancelled'];
@@ -177,6 +178,10 @@ async function convertQuotation(id, actorId) {
     quotation.saleId = salesService.objectId(sale.id, 'saleId');
     await quotation.save({ session });
     await recordAudit({ userId, action: 'quotation.convert', module: 'sales', recordId: quotation.id, before, after: quotation, session });
+    await notifyPermission('sales.read', {
+      type: 'sales.quotation_converted', title: 'Cotización convertida', message: `La cotización ${quotation.folio} se convirtió en la venta ${sale.folio}.`,
+      module: 'sales', recordId: quotation.id, priority: 'normal', metadata: { folio: quotation.folio, saleId: sale.id, saleFolio: sale.folio }
+    }, { session });
     return { quotation: serializeQuotation(quotation), sale };
   });
 }

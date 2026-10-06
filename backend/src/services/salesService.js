@@ -4,6 +4,7 @@ const Sequence = require('../models/Sequence');
 const { Client, Product, Warehouse } = require('../models/catalog');
 const inventoryService = require('./inventoryService');
 const { recordAudit } = require('./auditService');
+const { notifyPermission } = require('./notificationService');
 const financeService = require('./financeService');
 
 const MAX_PAGE_SIZE = 100;
@@ -234,6 +235,10 @@ async function confirmSale(id, actorId) {
     await sale.save({ session });
     await financeService.createReceivableForSale({ sale, userId, session });
     await recordAudit({ userId, action: 'sale.confirmed', module: 'sales', recordId: sale.id, before, after: sale, session });
+    await notifyPermission('sales.read', {
+      type: 'sales.confirmed', title: 'Venta confirmada', message: `La venta ${sale.folio} fue confirmada.`,
+      module: 'sales', recordId: sale.id, priority: 'normal', metadata: { folio: sale.folio }
+    }, { session });
     return serializeSale(sale);
   });
 }
