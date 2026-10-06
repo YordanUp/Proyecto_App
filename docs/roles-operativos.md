@@ -9,7 +9,7 @@ La lista exportada por `backend/src/services/permissions.js` es la fuente de ver
 | `compras` | `dashboard.read`, `products.read`, `categories.read`, `suppliers.read`, `suppliers.create`, `suppliers.update`, `warehouses.read`, `inventory.read`, `purchases.read`, `purchases.create`, `purchases.update`, `purchases.approve`, `purchases.receive`, `purchases.cancel`, `reports.read`. |
 | `almacen` | `dashboard.read`, `products.read`, `categories.read`, `warehouses.read`, `inventory.read`, `inventory.create`, `inventory.adjust`, `reports.read`. |
 | `finanzas` | `dashboard.read`, `clients.read`, `suppliers.read`, `sales.read`, `purchases.read`, `finance.read`, `finance.create`, `finance.approve`, `finance.receive_payment`, `finance.make_payment`, `reports.read`. |
-| `supervisor` | `dashboard.read`, `products.read`, `categories.read`, `clients.read`, `suppliers.read`, `warehouses.read`, `inventory.read`, `sales.read`, `purchases.read`, `finance.read`, `reports.read`. |
+| `supervisor` | `dashboard.read`, `products.read`, `categories.read`, `clients.read`, `suppliers.read`, `warehouses.read`, `inventory.read`, `sales.read`, `purchases.read`, `finance.read`, `reports.read`, `integrations.read`. |
 
 ## Sincronizar roles base
 
@@ -29,4 +29,4 @@ La navegación y las rutas Web se ocultan/restringen usando `permissions` entreg
 
 ## Mobile
 
-El código Mobile de `feature/mobile-operational` filtra tabs/módulos usando permisos recibidos del perfil autenticado. No se incorporó a esta rama: `main` no incluye los archivos fuente de Mobile y no se debe añadir el proyecto entero como parte de esta fase Web/Backend. Debe validarse e integrarse por separado antes de declarar paridad Mobile para esta matriz.
+Mobile filtra tabs y módulos usando permisos recibidos del perfil autenticado. El rol de sistema `supervisor` recibe `integrations.read` para consulta de solo lectura. Ejecuta `db:seed-operational-roles -- --dry-run` y revisa el informe antes de aplicar esta actualización. `--apply` actualiza solo definiciones de roles de sistema; no cambia directamente cuentas de usuario ni asignaciones de roles.

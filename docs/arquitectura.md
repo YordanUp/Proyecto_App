@@ -8,9 +8,9 @@ La aplicación no escucha hasta conectar MongoDB. El proceso gestiona cierre ord
 
 ## Estado por dominios
 
-Persistente: users, roles, categorías, productos, clientes, proveedores, almacenes, existencias, movimientos de inventario, ventas, compras, finanzas, dashboard agregado, reportes y audit logs.
+Persistente: users, roles, categorías, productos, clientes, proveedores, almacenes, existencias, movimientos de inventario, ventas, compras, finanzas, dashboard agregado, reportes, integraciones internas, notificaciones, configuración y audit logs.
 
-Prototipo con datos en memoria: solicitudes de devolución, ajustes e integraciones. Cotizaciones, notificaciones y preferencias generales de configuración ya persisten en MongoDB. El registro de reportes simulado fue retirado de la API; el fixture que queda en `src/data/reports.js` no se usa para reportes operativos. Las consultas Mongo están descritas en `docs/api.md`.
+Prototipo con datos en memoria: solicitudes de devolución y ajustes. Integraciones es un registro administrativo persistente, sin conectores ni sincronización externa. Cotizaciones, notificaciones y preferencias generales de configuración también persisten en MongoDB. El registro de reportes simulado fue retirado de la API; el fixture que queda en `src/data/reports.js` no se usa para reportes operativos. Las consultas Mongo están descritas en `docs/api.md`.
 
 ## Transacciones
 

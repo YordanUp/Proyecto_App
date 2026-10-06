@@ -18,6 +18,7 @@ MongoDB Atlas es la persistencia operativa para usuarios, roles, categorías, pr
 | AccountsReceivable / AccountsPayable | folio y documento origen únicos; estado, cliente/proveedor y fecha |
 | FinancialMovement | fecha, cuenta y referencia; movimientos financieros inmutables |
 | AuditLog | módulo/fecha, usuario, registro y fecha indexados; sin rutas de borrado/edición |
+| Integration | slug único; filtros por estado, tipo y habilitación; orden actualizado; timestamps |
 
 Los índices se crean automáticamente en desarrollo/pruebas. En producción se deshabilita `autoIndex`; `npm run db:indexes` crea los índices de los modelos sin borrar otros índices existentes.
 
@@ -27,4 +28,4 @@ Altas y cambios de usuario, roles y catálogos incluyen su auditoría en la mism
 
 ## Migraciones pendientes
 
-Los arrays exportados por `src/data/` permanecen en funciones heredadas prototipo: solicitudes de devolución, ajustes e integraciones. Dashboard y reportes operativos agregan o consultan los modelos persistidos; `reportSeed` es un fixture sin endpoint productivo. La auditoría mostrada por `/api/reports/audit` lee la colección persistente `AuditLog`. `SystemSetting` contiene cuatro claves generales con índice único; `db:sync-settings` aplica defaults sin sobrescribir valores existentes.
+Los arrays exportados por `src/data/` permanecen en funciones heredadas prototipo: solicitudes de devolución y ajustes. Ya no existe un seed de integraciones: su colección comienza vacía y no se cargan proveedores de muestra. El registro de integración solo acepta configuración no sensible y registra cambios en `AuditLog`. Dashboard y reportes operativos agregan o consultan modelos persistidos; `reportSeed` es un fixture sin endpoint productivo. La auditoría mostrada por `/api/reports/audit` lee la colección persistente `AuditLog`. `SystemSetting` contiene cuatro claves generales con índice único; `db:sync-settings` aplica defaults sin sobrescribir valores existentes.
