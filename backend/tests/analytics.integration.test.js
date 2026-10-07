@@ -50,8 +50,27 @@ test('Analytics integration: dashboard and filtered reports use persisted data a
   const product = await Product.create({ code: `AN-${process.pid}`, name: 'Producto de prueba', categoryId: category.id, purchasePrice: 4, salePrice: 10, minStock: 3 });
   const warehouse = await Warehouse.create({ name: `Almacén analytics-${process.pid}` });
   const now = new Date();
+  // Focal case: keep the September-created/October-confirmed fixture out of
+  // the following dashboard assertions, which validate only this suite's $20 sale.
   const lateSale = await Sale.create({ folio: `V-AN-LATE-${process.pid}`, customer: client.id, items: [{ product: product.id, warehouse: warehouse.id, productNameSnapshot: product.name, skuSnapshot: product.code, quantity: 50, unitPrice: 10, taxRate: 0, tax: 0, subtotal: 500, total: 500 }], subtotal: 500, taxes: 0, total: 500, status: 'confirmed', createdBy: user.id, createdAt: new Date('2026-09-30T12:00:00.000Z'), confirmedAt: new Date('2026-10-01T12:00:00.000Z') });
-  assert.equal((await getMetrics(new Date('2026-10-01T12:00:00.000Z'))).metrics.sales.month.gross, 500);
+  try {
+    assert.equal((await getMetrics(new Date('2026-10-01T12:00:00.000Z'))).metrics.sales.month.gross, 500);
+    const octoberReport = await request(app).get('/api/reports/data/sales').query({ from: '2026-10-01', to: '2026-10-01', customer: client.id }).set(auth);
+    assert.equal(octoberReport.status, 200);
+    assert.equal(octoberReport.body.totals.grossTotal, 500);
+    assert.equal(octoberReport.body.data[0].createdAt.toString().slice(0, 10), '2026-09-30');
+    assert.equal(octoberReport.body.data[0].confirmedAt.toString().slice(0, 10), '2026-10-01');
+    const octoberCsv = await request(app).get('/api/reports/data/sales/export.csv').query({ from: '2026-10-01', to: '2026-10-01', customer: client.id }).set(auth);
+    assert.equal(octoberCsv.status, 200);
+    assert.match(octoberCsv.text, new RegExp(`V-AN-LATE-${process.pid}`));
+    assert.match(octoberCsv.text, /"Total bruto"/);
+    assert.match(octoberCsv.text, /"500"/);
+    const septemberReport = await request(app).get('/api/reports/data/sales').query({ from: '2026-09-01', to: '2026-09-30', customer: client.id }).set(auth);
+    assert.equal(septemberReport.status, 200);
+    assert.equal(septemberReport.body.totals.grossTotal, 0);
+  } finally {
+    await Sale.deleteOne({ _id: lateSale._id });
+  }
   const sale = await Sale.create({ folio: `V-AN-${process.pid}`, customer: client.id, items: [{ product: product.id, warehouse: warehouse.id, productNameSnapshot: product.name, skuSnapshot: product.code, quantity: 2, unitPrice: 10, taxRate: 0, tax: 0, subtotal: 20, total: 20 }], subtotal: 20, taxes: 0, total: 20, status: 'confirmed', createdBy: user.id, confirmedAt: now });
   await SalesReturn.create({ folio: `DV-AN-${process.pid}`, sale: sale.id, customer: client.id, items: [{ saleLineIndex: 0, product: product.id, warehouse: warehouse.id, productNameSnapshot: product.name, skuSnapshot: product.code, quantity: 0.3, unitPrice: 10, taxRate: 0, subtotal: 3, tax: 0, total: 3 }], reason: 'Devolución parcial analytics', status: 'processed', subtotal: 3, taxes: 0, total: 3, createdBy: user.id, processedAt: now });
   const priorDate = new Date('2026-08-20T12:00:00.000Z');
@@ -77,8 +96,8 @@ test('Analytics integration: dashboard and filtered reports use persisted data a
   assert.equal(dashboard.body.data.metrics.salesToday, 20);
   assert.equal(dashboard.body.data.metrics.salesMonth, 20);
   assert.deepEqual(dashboard.body.data.metrics.sales.today, { gross: 20, returns: 8, net: 12, count: 1 });
-  assert.deepEqual(dashboard.body.data.metrics.sales.month, { gross: 520, returns: 8, net: 512, count: 2 });
-  assert.equal(dashboard.body.data.metrics.confirmedSalesCount, 3);
+  assert.deepEqual(dashboard.body.data.metrics.sales.month, { gross: 20, returns: 8, net: 12, count: 1 });
+  assert.equal(dashboard.body.data.metrics.confirmedSalesCount, 2);
   assert.equal(dashboard.body.data.metrics.pendingPurchases, 1);
   assert.equal(dashboard.body.data.metrics.receivedPurchasesMonth, 1);
   assert.equal(dashboard.body.data.metrics.receivables.balance, 15);
@@ -90,19 +109,6 @@ test('Analytics integration: dashboard and filtered reports use persisted data a
   assert.equal(dashboard.body.data.recentFinancialMovements.length, 2);
   assert.equal(dashboard.body.data.recentFinancialMovements[0].description, 'Pago de prueba');
   assert.equal((await request(app).get('/api/dashboard')).status, 401);
-
-  const octoberReport = await request(app).get('/api/reports/data/sales').query({ from: '2026-10-01', to: '2026-10-01', customer: client.id }).set(auth);
-  assert.equal(octoberReport.status, 200);
-  assert.equal(octoberReport.body.totals.grossTotal, 500);
-  assert.equal(octoberReport.body.data[0].createdAt.toString().slice(0, 10), '2026-09-30');
-  assert.equal(octoberReport.body.data[0].confirmedAt.toString().slice(0, 10), '2026-10-01');
-  const octoberCsv = await request(app).get('/api/reports/data/sales/export.csv').query({ from: '2026-10-01', to: '2026-10-01', customer: client.id }).set(auth);
-  assert.equal(octoberCsv.status, 200);
-  assert.match(octoberCsv.text, new RegExp(`V-AN-LATE-${process.pid}`));
-  assert.doesNotMatch(octoberCsv.text, new RegExp(`V-AN-${process.pid}(?:,|\\")`));
-  const septemberReport = await request(app).get('/api/reports/data/sales').query({ from: '2026-09-01', to: '2026-09-30', customer: client.id }).set(auth);
-  assert.equal(septemberReport.status, 200);
-  assert.equal(septemberReport.body.totals.grossTotal, 0);
 
   const sales = await request(app).get(`/api/reports/data/sales?status=confirmed&customer=${client.id}&product=${product.id}&from=${now.toISOString().slice(0, 10)}&page=1&limit=1`).set(auth);
   assert.equal(sales.status, 200);
@@ -127,7 +133,7 @@ test('Analytics integration: dashboard and filtered reports use persisted data a
   assert.equal(returnsForPeriod.body.pagination.total, 2);
   assert.equal(returnsForPeriod.body.totals.returnsTotal, 8);
   const byPartyName = await request(app).get('/api/reports/data/sales').query({ customer: client.name }).set(auth);
-  assert.equal(byPartyName.body.pagination.total, 3);
+  assert.equal(byPartyName.body.pagination.total, 2);
   assert.equal((await request(app).get('/api/reports/data/sales?customer=zzzzzzzzzzzzzzzzzzzzzzzz').set(auth)).status, 400);
   assert.equal((await request(app).get('/api/reports/data/sales?from=2030-01-01&to=2020-01-01').set(auth)).status, 400);
   assert.equal((await request(app).get('/api/reports/data/sales?status=not-real').set(auth)).status, 400);
