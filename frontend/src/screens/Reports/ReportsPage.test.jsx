@@ -8,6 +8,7 @@ vi.mock('../../services/api', () => ({ API_URL: 'http://localhost:4000', apiRequ
 describe('ReportsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.removeItem('erp_token');
     apiRequest.mockResolvedValue({ success: true, data: [], pagination: { page: 1, limit: 25, total: 0, pages: 0 }, totals: {} });
   });
 
@@ -58,5 +59,75 @@ describe('ReportsPage', () => {
     apiRequest.mockRejectedValueOnce(new Error('Acceso denegado'));
     render(<ReportsPage />);
     expect(await screen.findByRole('alert')).toHaveTextContent('Acceso denegado');
+  });
+
+  it('DOCX-WEB-001: shows the Word export action for sales', async () => {
+    render(<ReportsPage />);
+    expect(await screen.findByRole('button', { name: 'Exportar Word' })).toBeInTheDocument();
+  });
+
+  it('DOCX-WEB-002: shows the Word export action for purchases', async () => {
+    render(<ReportsPage />);
+    fireEvent.change(screen.getByLabelText('Tipo de reporte'), { target: { value: 'purchases' } });
+    expect(await screen.findByRole('button', { name: 'Exportar Word' })).toBeInTheDocument();
+  });
+
+  it('DOCX-WEB-003: hides the Word export action for reports other than sales and purchases', async () => {
+    render(<ReportsPage />);
+    fireEvent.change(screen.getByLabelText('Tipo de reporte'), { target: { value: 'inventory-stock' } });
+    await waitFor(() => expect(apiRequest).toHaveBeenLastCalledWith('/api/reports/data/inventory-stock?page=1&limit=25'));
+    expect(screen.queryByRole('button', { name: 'Exportar Word' })).not.toBeInTheDocument();
+  });
+
+  it('DOCX-WEB-004: downloads the generated DOCX blob using the server filename', async () => {
+    render(<ReportsPage />);
+    const blob = new Blob(['docx']);
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, blob: async () => blob, headers: { get: () => 'attachment; filename="reporte-ventas-2026-10-01-a-2026-10-31.docx"' } });
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal('URL', { ...URL, createObjectURL: vi.fn(() => 'blob:docx'), revokeObjectURL: vi.fn() });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    fireEvent.click(await screen.findByRole('button', { name: 'Exportar Word' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('http://localhost:4000/api/reports/data/sales/export.docx?', { headers: {} }));
+    expect(click).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole('status')).toHaveTextContent('Reporte Word exportado correctamente.');
+    click.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it('DOCX-WEB-005: sends active filters to the DOCX export', async () => {
+    render(<ReportsPage />);
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, blob: async () => new Blob(['docx']), headers: { get: () => null } });
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal('URL', { ...URL, createObjectURL: vi.fn(() => 'blob:docx'), revokeObjectURL: vi.fn() });
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    fireEvent.change(screen.getByLabelText('Desde'), { target: { value: '2026-10-01' } });
+    fireEvent.change(screen.getByLabelText('Hasta'), { target: { value: '2026-10-31' } });
+    fireEvent.change(screen.getByLabelText('Cliente'), { target: { value: 'Chevrolet' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Exportar Word' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('http://localhost:4000/api/reports/data/sales/export.docx?from=2026-10-01&to=2026-10-31&customer=Chevrolet', { headers: {} }));
+    vi.unstubAllGlobals();
+  });
+
+  it('DOCX-WEB-006: displays loading and disables both exports while Word is generated', async () => {
+    let resolveBlob;
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, blob: () => new Promise(resolve => { resolveBlob = resolve; }), headers: { get: () => null } });
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal('URL', { ...URL, createObjectURL: vi.fn(() => 'blob:docx'), revokeObjectURL: vi.fn() });
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    render(<ReportsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Exportar Word' }));
+    expect(await screen.findByRole('button', { name: 'Generando Word…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Exportar CSV' })).toBeDisabled();
+    resolveBlob(new Blob(['docx']));
+    await screen.findByRole('status');
+    vi.unstubAllGlobals();
+  });
+
+  it('DOCX-WEB-007: displays an error when Word export fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, json: async () => ({ message: 'No se pudo generar el reporte Word.' }) }));
+    render(<ReportsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Exportar Word' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo generar el reporte Word.');
+    vi.unstubAllGlobals();
   });
 });
