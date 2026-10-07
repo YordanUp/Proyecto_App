@@ -17,6 +17,7 @@ const Role = require('../src/models/Role');
 const User = require('../src/models/User');
 const AuditLog = require('../src/models/AuditLog');
 const Sale = require('../src/models/Sale');
+const SalesReturn = require('../src/models/SalesReturn');
 const Purchase = require('../src/models/Purchase');
 const InventoryStock = require('../src/models/InventoryStock');
 const InventoryMovement = require('../src/models/InventoryMovement');
@@ -49,6 +50,10 @@ test('Analytics integration: dashboard and filtered reports use persisted data a
   const warehouse = await Warehouse.create({ name: `Almacén analytics-${process.pid}` });
   const now = new Date();
   const sale = await Sale.create({ folio: `V-AN-${process.pid}`, customer: client.id, items: [{ product: product.id, warehouse: warehouse.id, productNameSnapshot: product.name, skuSnapshot: product.code, quantity: 2, unitPrice: 10, taxRate: 0, tax: 0, subtotal: 20, total: 20 }], subtotal: 20, taxes: 0, total: 20, status: 'confirmed', createdBy: user.id, confirmedAt: now });
+  await SalesReturn.create({ folio: `DV-AN-${process.pid}`, sale: sale.id, customer: client.id, items: [{ saleLineIndex: 0, product: product.id, warehouse: warehouse.id, productNameSnapshot: product.name, skuSnapshot: product.code, quantity: 0.3, unitPrice: 10, taxRate: 0, subtotal: 3, tax: 0, total: 3 }], reason: 'Devolución parcial analytics', status: 'processed', subtotal: 3, taxes: 0, total: 3, createdBy: user.id, processedAt: now });
+  const priorDate = new Date(now.getTime() - 40 * 24 * 60 * 60 * 1000);
+  const priorSale = await Sale.create({ folio: `V-AN-OLD-${process.pid}`, customer: client.id, items: [{ product: product.id, warehouse: warehouse.id, productNameSnapshot: product.name, skuSnapshot: product.code, quantity: 4, unitPrice: 10, taxRate: 0, tax: 0, subtotal: 40, total: 40 }], subtotal: 40, taxes: 0, total: 40, status: 'confirmed', createdBy: user.id, confirmedAt: priorDate, createdAt: priorDate });
+  await SalesReturn.create({ folio: `DV-AN-OLD-${process.pid}`, sale: priorSale.id, customer: client.id, items: [{ saleLineIndex: 0, product: product.id, warehouse: warehouse.id, productNameSnapshot: product.name, skuSnapshot: product.code, quantity: 0.5, unitPrice: 10, taxRate: 0, subtotal: 5, tax: 0, total: 5 }], reason: 'Devolución de venta anterior analytics', status: 'processed', subtotal: 5, taxes: 0, total: 5, createdBy: user.id, processedAt: now });
   const purchase = await Purchase.create({ folio: `C-AN-${process.pid}`, supplier: supplier.id, items: [{ product: product.id, warehouse: warehouse.id, productNameSnapshot: product.name, skuSnapshot: product.code, quantity: 1, unitCost: 4, taxRate: 0, tax: 0, subtotal: 4, total: 4 }], subtotal: 4, taxes: 0, total: 4, status: 'received', createdBy: user.id, receivedAt: now });
   await Purchase.create({ folio: `C-AN-P-${process.pid}`, supplier: supplier.id, items: [{ product: product.id, warehouse: warehouse.id, productNameSnapshot: product.name, skuSnapshot: product.code, quantity: 1, unitCost: 4, taxRate: 0, tax: 0, subtotal: 4, total: 4 }], subtotal: 4, taxes: 0, total: 4, status: 'ordered', createdBy: user.id });
   await InventoryStock.create({ productId: product.id, warehouseId: warehouse.id, quantity: 2, reservedQuantity: 0, minimumStock: 3 });
@@ -56,7 +61,8 @@ test('Analytics integration: dashboard and filtered reports use persisted data a
   await InventoryStock.create({ productId: product.id, warehouseId: emptyWarehouse.id, quantity: 0, reservedQuantity: 0, minimumStock: 3 });
   await InventoryMovement.create([
     { productId: product.id, warehouseId: warehouse.id, type: 'IN', quantity: 1, previousQuantity: 0, newQuantity: 1, reason: 'Carga inicial analytics', userId: user.id },
-    { productId: product.id, warehouseId: warehouse.id, type: 'IN', quantity: 1, previousQuantity: 1, newQuantity: 2, reason: 'Segunda entrada analytics', userId: user.id }
+    { productId: product.id, warehouseId: warehouse.id, type: 'IN', quantity: 1, previousQuantity: 1, newQuantity: 2, reason: 'Segunda entrada analytics', userId: user.id },
+    { productId: product.id, warehouseId: warehouse.id, type: 'SALE_RETURN', quantity: 1, previousQuantity: 1, newQuantity: 2, reason: 'Devolución de venta analytics', userId: user.id }
   ]);
   const receivable = await AccountsReceivable.create({ folio: `CXC-AN-${process.pid}`, sale: sale.id, customer: client.id, originalAmount: 20, paidAmount: 5, balance: 15, status: 'partial', createdBy: user.id });
   const payable = await AccountsPayable.create({ folio: `CXP-AN-${process.pid}`, purchase: purchase.id, supplier: supplier.id, originalAmount: 4, paidAmount: 0, balance: 4, status: 'pending', createdBy: user.id });
@@ -67,10 +73,13 @@ test('Analytics integration: dashboard and filtered reports use persisted data a
   assert.equal(dashboard.status, 200);
   assert.equal(dashboard.body.data.metrics.salesToday, 20);
   assert.equal(dashboard.body.data.metrics.salesMonth, 20);
+  assert.deepEqual(dashboard.body.data.metrics.sales.today, { gross: 20, returns: 8, net: 12, count: 1 });
+  assert.deepEqual(dashboard.body.data.metrics.sales.month, { gross: 20, returns: 8, net: 12, count: 1 });
   assert.equal(dashboard.body.data.metrics.confirmedSalesCount, 1);
   assert.equal(dashboard.body.data.metrics.pendingPurchases, 1);
   assert.equal(dashboard.body.data.metrics.receivedPurchasesMonth, 1);
   assert.equal(dashboard.body.data.metrics.receivables.balance, 15);
+  assert.notEqual(dashboard.body.data.metrics.receivables.balance, dashboard.body.data.metrics.sales.today.net);
   assert.equal(dashboard.body.data.metrics.payables.balance, 4);
   assert.equal(dashboard.body.data.metrics.lowStockCount, 2);
   assert.equal(dashboard.body.data.metrics.outOfStockCount, 1);
@@ -84,9 +93,25 @@ test('Analytics integration: dashboard and filtered reports use persisted data a
   assert.equal(sales.body.data.length, 1);
   assert.equal(sales.body.data[0].folio, sale.folio);
   assert.equal(sales.body.pagination.total, 1);
-  assert.equal(sales.body.totals.total, 20);
+  assert.equal(sales.body.data[0].grossTotal, 20);
+  assert.equal(sales.body.data[0].returnedTotal, 3);
+  assert.equal(sales.body.data[0].netTotal, 17);
+  assert.equal(sales.body.totals.grossTotal, 20);
+  assert.equal(sales.body.totals.returnsTotal, 8);
+  assert.equal(sales.body.totals.netTotal, 12);
+  const currentSales = await request(app).get(`/api/reports/data/sales?from=${now.toISOString().slice(0, 10)}&to=${now.toISOString().slice(0, 10)}`).set(auth);
+  assert.equal(currentSales.body.pagination.total, 1);
+  assert.equal(currentSales.body.data[0].returnedTotal, 3);
+  assert.equal(currentSales.body.totals.returnsTotal, 8);
+  const salesReturns = await request(app).get('/api/reports/data/sales-returns').query({ from: now.toISOString().slice(0, 10), to: now.toISOString().slice(0, 10), customerId: client.id, saleId: sale.id, search: 'DV-AN-' }).set(auth);
+  assert.equal(salesReturns.status, 200);
+  assert.equal(salesReturns.body.pagination.total, 1);
+  assert.equal(salesReturns.body.totals.returnsTotal, 3);
+  const returnsForPeriod = await request(app).get('/api/reports/data/sales-returns').query({ from: now.toISOString().slice(0, 10), to: now.toISOString().slice(0, 10), customerId: client.id, search: 'DV-AN-' }).set(auth);
+  assert.equal(returnsForPeriod.body.pagination.total, 2);
+  assert.equal(returnsForPeriod.body.totals.returnsTotal, 8);
   const byPartyName = await request(app).get('/api/reports/data/sales').query({ customer: client.name }).set(auth);
-  assert.equal(byPartyName.body.pagination.total, 1);
+  assert.equal(byPartyName.body.pagination.total, 2);
   assert.equal((await request(app).get('/api/reports/data/sales?customer=zzzzzzzzzzzzzzzzzzzzzzzz').set(auth)).status, 400);
   assert.equal((await request(app).get('/api/reports/data/sales?from=2030-01-01&to=2020-01-01').set(auth)).status, 400);
   assert.equal((await request(app).get('/api/reports/data/sales?status=not-real').set(auth)).status, 400);
@@ -101,8 +126,11 @@ test('Analytics integration: dashboard and filtered reports use persisted data a
   assert.equal(inventoryMovements.body.data.length, 1);
   assert.equal(inventoryMovements.body.pagination.total, 2);
   assert.equal(inventoryMovements.body.pagination.pages, 2);
-  assert.equal(inventoryMovements.body.totals.entries, 2);
-  assert.equal(inventoryMovements.body.totals.movementCount, 2);
+  assert.equal(inventoryMovements.body.totals.entries, 3);
+  assert.equal(inventoryMovements.body.totals.movementCount, 3);
+  const returnMovement = await request(app).get('/api/reports/data/inventory-movements?movementType=SALE_RETURN').set(auth);
+  assert.equal(returnMovement.status, 200);
+  assert.equal(returnMovement.body.totals.entries, 1);
   const arReport = await request(app).get('/api/reports/data/receivables?status=partial&customer=' + client.id).set(auth);
   assert.equal(arReport.status, 200);
   assert.equal(arReport.body.totals.balance, 15);
@@ -120,8 +148,14 @@ test('Analytics integration: dashboard and filtered reports use persisted data a
   assert.equal(csv.status, 200);
   assert.match(csv.headers['content-type'], /text\/csv/);
   assert.match(csv.text, /V-AN-/);
+  assert.match(csv.text, /Total bruto/);
+  assert.match(csv.text, /Total devuelto/);
+  assert.match(csv.text, /Total neto/);
   assert.match(csv.text, /"Cliente con coma, y ""comillas"""/);
-  assert.equal(await AuditLog.countDocuments({ action: 'report.exported', module: 'reports' }), 1);
+  const returnsCsv = await request(app).get('/api/reports/data/sales-returns/export.csv').query({ customerId: client.id }).set(auth);
+  assert.equal(returnsCsv.status, 200);
+  assert.match(returnsCsv.text, /Subtotal devuelto,Impuestos devueltos,Total devuelto/);
+  assert.equal(await AuditLog.countDocuments({ action: 'report.exported', module: 'reports' }), 2);
 
   const readerRole = await Role.create({ name: `analytics-reader-${process.pid}`, permissions: ['dashboard.read'] });
   const reader = await User.create({ name: 'Lector sin reportes', email: `analytics-reader-${process.pid}@test.invalid`, passwordHash: await hashPassword('clave-analitica-lector-larga'), role: readerRole.id });
