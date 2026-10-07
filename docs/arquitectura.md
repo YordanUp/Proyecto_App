@@ -8,13 +8,17 @@ La aplicación no escucha hasta conectar MongoDB. El proceso gestiona cierre ord
 
 ## Estado por dominios
 
-Persistente: users, roles, categorías, productos, clientes, proveedores, almacenes, existencias, movimientos de inventario, ventas, compras, finanzas, dashboard agregado, reportes, integraciones internas, notificaciones, configuración y audit logs.
+Persistente: users, roles, categorías, productos, clientes, proveedores, almacenes, existencias, movimientos de inventario, ventas, devoluciones de ventas, compras, finanzas, dashboard agregado, reportes, integraciones internas, notificaciones, configuración y audit logs.
 
 Las devoluciones de ventas persisten como documentos inmutables y transaccionales en MongoDB; compras aún no tiene flujo de devoluciones. Integraciones es un registro administrativo persistente, sin conectores ni sincronización externa. Cotizaciones, notificaciones y preferencias generales de configuración también persisten en MongoDB. El registro de reportes simulado fue retirado de la API; el fixture que queda en `src/data/reports.js` no se usa para reportes operativos. Las consultas Mongo están descritas en `docs/api.md`.
 
 ## Transacciones
 
-Las mutaciones persistentes del núcleo y la auditoría correspondiente se ejecutan dentro de transacciones de MongoDB. Por ello el entorno debe soportar replica sets; MongoDB Atlas cumple este requisito. El inventario transaccional se desarrollará como etapa posterior.
+Las mutaciones persistentes del núcleo y la auditoría correspondiente se ejecutan dentro de transacciones de MongoDB. Por ello el entorno debe soportar replica sets; MongoDB Atlas cumple este requisito. Inventario, ventas, compras y devoluciones aplican escrituras coordinadas con movimientos y auditoría en transacciones.
+
+## Métricas de ventas
+
+Dashboard y reportes distinguen importes brutos de ventas confirmadas, devoluciones procesadas y neto. Dashboard asigna la venta a `confirmedAt`; el reporte `sales` conserva el filtro de registros por `createdAt`. En ambos, las devoluciones se asignan al `processedAt`, por lo que una devolución del período puede corresponder a una venta anterior. Los aliases de dashboard `salesToday` y `salesMonth` se mantienen deprecados y siguen expresando bruto. Los saldos CxC/CxP no se calculan desde el neto comercial.
 
 ## Frontend
 

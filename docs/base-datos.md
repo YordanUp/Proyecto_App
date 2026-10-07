@@ -15,6 +15,7 @@ MongoDB Atlas es la persistencia operativa para usuarios, roles, categorías, pr
 | InventoryStock | unicidad por producto/almacén; existencia, reservados y mínimo |
 | InventoryMovement | producto/almacén/fecha, tipo/fecha, referencia; movimientos inmutables |
 | Sale / Purchase | folio único, estado/fecha, cliente/proveedor; snapshots y timestamps |
+| SalesReturn | folio único; índices por venta/estado, venta/fecha, cliente/fecha y estado/fecha procesada; documento inmutable |
 | AccountsReceivable / AccountsPayable | folio y documento origen únicos; estado, cliente/proveedor y fecha |
 | FinancialMovement | fecha, cuenta y referencia; movimientos financieros inmutables |
 | AuditLog | módulo/fecha, usuario, registro y fecha indexados; sin rutas de borrado/edición |
@@ -28,4 +29,4 @@ Altas y cambios de usuario, roles y catálogos incluyen su auditoría en la mism
 
 ## Migraciones pendientes
 
-Los arrays exportados por `src/data/` permanecen en funciones heredadas prototipo para módulos no migrados; solicitudes de devolución de ventas ya no usan fixtures en memoria. `SalesReturn` conserva artículos, montos, referencias y estado procesado inmutable en MongoDB, con índices únicos para folio y compuestos por venta/fecha y cliente/fecha. Ya no existe un seed de integraciones: su colección comienza vacía y no se cargan proveedores de muestra. El registro de integración solo acepta configuración no sensible y registra cambios en `AuditLog`. Dashboard y reportes operativos agregan o consultan modelos persistidos; `reportSeed` es un fixture sin endpoint productivo. La auditoría mostrada por `/api/reports/audit` lee la colección persistente `AuditLog`. `SystemSetting` contiene cuatro claves generales con índice único; `db:sync-settings` aplica defaults sin sobrescribir valores existentes.
+Los arrays exportados por `src/data/` permanecen en funciones heredadas prototipo para módulos no migrados; solicitudes de devolución de ventas ya no usan fixtures en memoria. `SalesReturn` conserva artículos, montos, referencias y estado procesado inmutable en MongoDB. El índice `{ status, processedAt }` soporta reportes por periodo procesado; los compuestos por venta/estado, venta/fecha y cliente/fecha apoyan consultas y restricciones. Dashboard/reportes agregan `Sale` y `SalesReturn` persistidos: bruto de ventas confirmadas menos devoluciones procesadas del periodo produce neto; CxC no se deriva de ese cálculo. `reportSeed` es un fixture sin endpoint productivo. La auditoría mostrada por `/api/reports/audit` lee la colección persistente `AuditLog`. `SystemSetting` contiene cuatro claves generales con índice único; `db:sync-settings` aplica defaults sin sobrescribir valores existentes.
