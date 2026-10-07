@@ -29,8 +29,17 @@ export default function DashboardPage({ session }) {
 
   const metrics = dashboard?.metrics || {};
   const canSee = permission => hasPermission(session?.user, permission);
+  const salesToday = metrics.sales?.today || {};
+  const salesMonth = metrics.sales?.month || {};
   const cards = [
-    ...(canSee('sales.read') ? [['Ventas de hoy', money(metrics.salesToday), `${metrics.salesCountToday || 0} ventas confirmadas`, 'mint'], ['Ventas del mes', money(metrics.salesMonth), `${metrics.confirmedSalesCount || 0} ventas confirmadas en total`, 'blue']] : []),
+    ...(canSee('sales.read') ? [
+      ['Ventas brutas de hoy', money(salesToday.gross), `${salesToday.count || 0} ventas confirmadas`, 'mint'],
+      ['Devoluciones de hoy', money(salesToday.returns), 'Procesadas hoy', 'coral'],
+      ['Ventas netas de hoy', money(salesToday.net), 'Bruto menos devoluciones del periodo', 'blue'],
+      ['Ventas brutas del mes', money(salesMonth.gross), `${salesMonth.count || 0} ventas confirmadas`, 'mint'],
+      ['Devoluciones del mes', money(salesMonth.returns), 'Procesadas este mes', 'coral'],
+      ['Ventas netas del mes', money(salesMonth.net), 'Bruto menos devoluciones del periodo', 'blue']
+    ] : []),
     ...(canSee('purchases.read') ? [['Compras pendientes', metrics.pendingPurchases || 0, 'Órdenes por recibir', 'coral'], ['Compras recibidas este mes', metrics.receivedPurchasesMonth || 0, 'Recepciones registradas', 'mint']] : []),
     ...(canSee('inventory.read') ? [['Existencias bajas', metrics.lowStockCount || 0, 'Productos en o bajo mínimo', 'coral'], ['Sin existencias', metrics.outOfStockCount || 0, 'Existencia disponible en cero', 'blue']] : []),
     ...(canSee('finance.read') ? [['Cuentas por cobrar', money(metrics.receivables?.balance), `${metrics.receivables?.count || 0} cuentas abiertas`, 'mint'], ['Cuentas por pagar', money(metrics.payables?.balance), `${metrics.payables?.count || 0} cuentas abiertas`, 'coral']] : [])
@@ -46,7 +55,7 @@ export default function DashboardPage({ session }) {
       <div className="dashboard-grid dashboard-real-grid">
         <div className="dashboard-primary">
           {canSee('sales.read') ? <section className="card"><div className="dashboard-section-heading"><div><h2>Ventas recientes</h2><p>Últimas ventas confirmadas</p></div></div>
-            <div className="table-scroll"><table className="data-table"><thead><tr><th>Folio</th><th>Cliente</th><th>Fecha</th><th>Total</th></tr></thead><tbody>
+            <div className="table-scroll"><table className="data-table"><thead><tr><th>Folio</th><th>Cliente</th><th>Fecha</th><th>Total bruto</th></tr></thead><tbody>
               {dashboard?.recentSales?.length ? dashboard.recentSales.map(sale => <tr key={sale.id}><td>{sale.folio}</td><td>{sale.customer?.name || 'Cliente'}</td><td>{sale.confirmedAt ? new Date(sale.confirmedAt).toLocaleDateString() : '—'}</td><td>{money(sale.total)}</td></tr>) : <tr><td colSpan="4" className="empty-state">Sin ventas confirmadas.</td></tr>}
             </tbody></table></div>
           </section> : null}

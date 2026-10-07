@@ -22,6 +22,17 @@ describe('ReportsPage', () => {
     expect(screen.getByRole('button', { name: /Exportar CSV/i })).toBeInTheDocument();
   });
 
+  it('loads a sales return report with customer and sale filters', async () => {
+    render(<ReportsPage />);
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith('/api/reports/data/sales?page=1&limit=25'));
+    fireEvent.change(screen.getByLabelText('Tipo de reporte'), { target: { value: 'sales-returns' } });
+    await waitFor(() => expect(apiRequest).toHaveBeenLastCalledWith('/api/reports/data/sales-returns?page=1&limit=25'));
+    fireEvent.change(screen.getByLabelText('Cliente'), { target: { value: 'cliente-123' } });
+    await waitFor(() => expect(apiRequest).toHaveBeenLastCalledWith('/api/reports/data/sales-returns?page=1&limit=25&customerId=cliente-123'));
+    fireEvent.change(screen.getByLabelText('Venta'), { target: { value: '507f1f77bcf86cd799439011' } });
+    await waitFor(() => expect(apiRequest).toHaveBeenLastCalledWith('/api/reports/data/sales-returns?page=1&limit=25&customerId=cliente-123&saleId=507f1f77bcf86cd799439011'));
+  });
+
   it('paginates server results and exports filtered CSV', async () => {
     apiRequest.mockResolvedValueOnce({ success: true, data: [{ id: '1', folio: 'V-001', status: 'confirmed' }], pagination: { page: 1, limit: 25, total: 26, pages: 2 }, totals: { total: 50 } });
     apiRequest.mockResolvedValueOnce({ success: true, data: [{ id: '2', folio: 'V-002', status: 'confirmed' }], pagination: { page: 2, limit: 25, total: 26, pages: 2 }, totals: { total: 50 } });
