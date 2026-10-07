@@ -1,4 +1,5 @@
 const Sale = require('../models/Sale');
+const SalesReturn = require('../models/SalesReturn');
 const Purchase = require('../models/Purchase');
 const InventoryStock = require('../models/InventoryStock');
 const AccountsReceivable = require('../models/AccountsReceivable');
@@ -18,7 +19,7 @@ function restrictDashboard(data, permissions = []) {
   const allowed = new Set(permissions);
   const result = { ...data, metrics: { ...data.metrics } };
   if (!allowed.has('sales.read')) {
-    for (const key of ['salesToday', 'salesMonth', 'salesCountToday', 'confirmedSalesCount']) delete result.metrics[key];
+    for (const key of ['sales', 'salesToday', 'salesMonth', 'salesCountToday', 'confirmedSalesCount']) delete result.metrics[key];
     result.recentSales = [];
   }
   if (!allowed.has('purchases.read')) {
@@ -38,13 +39,25 @@ function restrictDashboard(data, permissions = []) {
   return result;
 }
 
+function money(value) { return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100; }
+
+function salesPeriod(gross, returns, count = 0) {
+  const grossTotal = money(gross);
+  const returnedTotal = money(returns);
+  return { gross: grossTotal, returns: returnedTotal, net: money(grossTotal - returnedTotal), count };
+}
+
 async function getMetrics(now = new Date()) {
   const ranges = utcRanges(now);
-  const [sales, purchaseMetrics, inventoryMetrics, receivables, payables, recentMovements, recentSales] = await Promise.all([
+  const [sales, salesReturns, purchaseMetrics, inventoryMetrics, receivables, payables, recentMovements, recentSales] = await Promise.all([
     Sale.aggregate([{ $match: { status: 'confirmed' } }, { $facet: {
       today: [{ $match: { confirmedAt: ranges.today } }, { $group: { _id: null, total: { $sum: '$total' }, count: { $sum: 1 } } }],
       month: [{ $match: { confirmedAt: ranges.month } }, { $group: { _id: null, total: { $sum: '$total' }, count: { $sum: 1 } } }],
       confirmed: [{ $count: 'count' }]
+    } }]),
+    SalesReturn.aggregate([{ $match: { status: 'processed' } }, { $facet: {
+      today: [{ $match: { processedAt: ranges.today } }, { $group: { _id: null, total: { $sum: '$total' } } }],
+      month: [{ $match: { processedAt: ranges.month } }, { $group: { _id: null, total: { $sum: '$total' } } }]
     } }]),
     Purchase.aggregate([{ $facet: {
       pending: [{ $match: { status: 'ordered' } }, { $count: 'count' }],
@@ -64,14 +77,19 @@ async function getMetrics(now = new Date()) {
     Sale.find({ status: 'confirmed' }).sort({ confirmedAt: -1, _id: -1 }).limit(5).populate('customer', 'name').select('folio total confirmedAt customer status').lean()
   ]);
   const salesData = sales[0] || {};
+  const returnData = salesReturns[0] || {};
+  const todaySales = salesPeriod(salesData.today?.[0]?.total, returnData.today?.[0]?.total, salesData.today?.[0]?.count || 0);
+  const monthSales = salesPeriod(salesData.month?.[0]?.total, returnData.month?.[0]?.total, salesData.month?.[0]?.count || 0);
   const purchaseData = purchaseMetrics[0] || {};
   const stockData = inventoryMetrics[0] || {};
   const receivable = receivables[0] || { count: 0, balance: 0 };
   const payable = payables[0] || { count: 0, balance: 0 };
   return {
     metrics: {
-      salesToday: salesData.today?.[0]?.total || 0,
-      salesMonth: salesData.month?.[0]?.total || 0,
+      sales: { today: todaySales, month: monthSales },
+      // Deprecated compatibility aliases; both retain the historical gross meaning.
+      salesToday: todaySales.gross,
+      salesMonth: monthSales.gross,
       salesCountToday: salesData.today?.[0]?.count || 0,
       confirmedSalesCount: salesData.confirmed?.[0]?.count || 0,
       pendingPurchases: purchaseData.pending?.[0]?.count || 0,
@@ -88,4 +106,4 @@ async function getMetrics(now = new Date()) {
   };
 }
 
-module.exports = { getMetrics, utcRanges, restrictDashboard };
+module.exports = { getMetrics, utcRanges, restrictDashboard, salesPeriod };

@@ -16,7 +16,7 @@ const itemSchema = new mongoose.Schema({
 
 const schema = new mongoose.Schema({
   folio: { type: String, required: true, immutable: true, trim: true },
-  sale: { type: mongoose.Schema.Types.ObjectId, ref: 'Sale', required: true, immutable: true, index: true },
+  sale: { type: mongoose.Schema.Types.ObjectId, ref: 'Sale', required: true, immutable: true },
   customer: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', required: true, immutable: true, index: true },
   items: { type: [itemSchema], required: true, validate: items => Array.isArray(items) && items.length > 0 },
   reason: { type: String, required: true, trim: true, maxlength: 300 },
@@ -30,7 +30,9 @@ const schema = new mongoose.Schema({
 }, { timestamps: true, versionKey: false });
 
 schema.index({ folio: 1 }, { unique: true });
+schema.index({ sale: 1, status: 1 });
 schema.index({ sale: 1, createdAt: -1 });
 schema.index({ customer: 1, createdAt: -1 });
+schema.index({ status: 1, processedAt: -1 });
 
 module.exports = mongoose.models.SalesReturn || mongoose.model('SalesReturn', schema);
