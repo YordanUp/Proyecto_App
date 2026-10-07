@@ -498,7 +498,7 @@ label { display: block; margin-bottom: 13px; color: #646a78; font-size: 11px; fo
 .login-panel .auth-form input:focus-visible { border-color: #35ad81; outline: 3px solid rgba(53,173,129,.18); box-shadow: none; }
 .password-field { position: relative; display: block; }
 .password-field input { padding-right: 48px !important; }
-.password-toggle { position: absolute; top: 50%; right: 4px; display: flex; width: 40px; height: 40px; align-items: center; justify-content: center; padding: 0; transform: translateY(calc(-50% - 3px)); border: 0; border-radius: 7px; color: #64748b; background: transparent; cursor: pointer; transition: color .16s ease, background .16s ease; }
+.password-toggle { position: absolute; top: 50%; right: 4px; display: flex; width: 40px; height: 40px; align-items: center; justify-content: center; padding: 0; transform: translateY(calc(-50% - 6px)); border: 0; border-radius: 7px; color: #64748b; background: transparent; cursor: pointer; transition: color .16s ease, background .16s ease; }
 .password-toggle:hover { color: #378665; background: #f0faf5; }
 .password-toggle:focus-visible { outline: 2px solid #35ad81; outline-offset: 1px; }
 .login-panel .auth-form .login-submit { min-height: 48px; margin-top: 3px; border-radius: 9px; color: #15382e; background: #83dfb8; font-size: 13px; transition: background .16s ease, transform .16s ease; }
