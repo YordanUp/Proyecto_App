@@ -98,7 +98,15 @@ export default function LoginPage({ onLogin }) {
                 required
               />
               <button className="password-toggle" type="button" aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'} aria-pressed={showPassword} onClick={() => setShowPassword((visible) => !visible)}>
-                {showPassword ? 'Ocultar' : 'Mostrar'}
+                <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="21" height="21" fill="none">
+                  <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  {showPassword ? (
+                    <>
+                      <circle cx="12" cy="12" r="2.7" stroke="currentColor" strokeWidth="1.8" />
+                      <path d="m4 4 16 16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                    </>
+                  ) : <circle cx="12" cy="12" r="2.7" stroke="currentColor" strokeWidth="1.8" />}
+                </svg>
               </button>
             </span>
           </label>

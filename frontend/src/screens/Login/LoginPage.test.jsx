@@ -18,9 +18,14 @@ describe('LoginPage invitation flow', () => {
     expect(screen.getByLabelText('Usuario')).toHaveAttribute('autocomplete', 'username');
     const password = screen.getByLabelText('Contraseña');
     expect(password).toHaveAttribute('type', 'password');
-    fireEvent.click(screen.getByRole('button', { name: 'Mostrar contraseña' }));
+    const showButton = screen.getByRole('button', { name: 'Mostrar contraseña' });
+    expect(showButton).toHaveAttribute('type', 'button');
+    expect(showButton.querySelector('svg')).toBeInTheDocument();
+    fireEvent.click(showButton);
     expect(password).toHaveAttribute('type', 'text');
-    fireEvent.click(screen.getByRole('button', { name: 'Ocultar contraseña' }));
+    const hideButton = screen.getByRole('button', { name: 'Ocultar contraseña' });
+    expect(hideButton).toHaveAttribute('type', 'button');
+    fireEvent.click(hideButton);
     expect(password).toHaveAttribute('type', 'password');
   });
 
