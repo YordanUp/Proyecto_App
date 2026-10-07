@@ -13,7 +13,7 @@ const { recordAudit } = require('./auditService');
 const MAX_PAGE_LIMIT = 100;
 const MAX_EXPORT_LIMIT = 10000;
 const REPORTS = {
-  sales: { model: Sale, date: 'createdAt', owner: 'customer', ownerFilter: 'customer', product: 'items.product', populate: [['customer', 'name'], ['items.product', 'name code'], ['items.warehouse', 'name'], ['createdBy', 'name'] ], totals: ['subtotal', 'taxes', 'total'] },
+  sales: { model: Sale, date: 'confirmedAt', owner: 'customer', ownerFilter: 'customer', product: 'items.product', populate: [['customer', 'name'], ['items.product', 'name code'], ['items.warehouse', 'name'], ['createdBy', 'name'] ], totals: ['subtotal', 'taxes', 'total'] },
   'sales-returns': { model: SalesReturn, date: 'processedAt', owner: 'customer', ownerFilter: 'customer', populate: [['sale', 'folio'], ['customer', 'name'], ['createdBy', 'name']], totals: ['subtotal', 'taxes', 'total'] },
   purchases: { model: Purchase, date: 'createdAt', owner: 'supplier', ownerFilter: 'supplier', product: 'items.product', populate: [['supplier', 'name'], ['items.product', 'name code'], ['items.warehouse', 'name'], ['createdBy', 'name']], totals: ['subtotal', 'taxes', 'total'] },
   'inventory-stock': { model: InventoryStock, date: 'updatedAt', populate: [['productId', 'name code minStock'], ['warehouseId', 'name']], totals: ['quantity', 'reservedQuantity'] },
@@ -164,7 +164,7 @@ function money(value) { return Math.round((Number(value || 0) + Number.EPSILON) 
 function prefixSaleFilter(filter) {
   const result = { status: 'confirmed' };
   for (const [key, value] of Object.entries(filter)) {
-    if (key === 'createdAt') continue;
+    if (key === 'confirmedAt') continue;
     if (key === 'status') result.status = value;
     else if (key === '$or') {
       result.$or = value.map(clause => Object.fromEntries(Object.entries(clause).map(([field, condition]) => [`saleDoc.${field}`, condition])));
@@ -174,7 +174,7 @@ function prefixSaleFilter(filter) {
 }
 
 function salePeriod(filter) {
-  const date = filter.createdAt;
+  const date = filter.confirmedAt;
   return date ? { processedAt: date } : {};
 }
 

@@ -18,7 +18,7 @@ Las mutaciones persistentes del núcleo y la auditoría correspondiente se ejecu
 
 ## Métricas de ventas
 
-Dashboard y reportes distinguen importes brutos de ventas confirmadas, devoluciones procesadas y neto. Dashboard asigna la venta a `confirmedAt`; el reporte `sales` conserva el filtro de registros por `createdAt`. En ambos, las devoluciones se asignan al `processedAt`, por lo que una devolución del período puede corresponder a una venta anterior. Los aliases de dashboard `salesToday` y `salesMonth` se mantienen deprecados y siguen expresando bruto. Los saldos CxC/CxP no se calculan desde el neto comercial.
+Dashboard y reportes distinguen importes brutos de ventas confirmadas, devoluciones procesadas y neto. Tanto Dashboard como reporte `sales` asignan el periodo financiero de la venta a `confirmedAt`; `createdAt` solo conserva su uso como fecha de creación visible. En ambos, las devoluciones se asignan a `processedAt`, por lo que una devolución del período puede corresponder a una venta confirmada antes. Los aliases de dashboard `salesToday` y `salesMonth` se mantienen deprecados y siguen expresando bruto. Los saldos CxC/CxP no se calculan desde el neto comercial.
 
 ## Frontend
 

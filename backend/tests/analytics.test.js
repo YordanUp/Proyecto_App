@@ -47,6 +47,14 @@ test('Report search treats user text literally', async () => {
   assert.equal(filter.$or[0].folio.test('AxB'), false);
 });
 
+test('Los periodos financieros de ventas usan confirmedAt y los de devoluciones processedAt', async () => {
+  const { filter: salesFilter } = await buildFilter('sales', { from: '2026-10-01', to: '2026-10-31' });
+  const { filter: returnsFilter } = await buildFilter('sales-returns', { from: '2026-10-01', to: '2026-10-31' });
+  assert.deepEqual(salesFilter.confirmedAt, { $gte: new Date('2026-10-01T00:00:00.000Z'), $lte: new Date('2026-10-31T23:59:59.999Z') });
+  assert.equal('createdAt' in salesFilter, false);
+  assert.deepEqual(returnsFilter.processedAt, salesFilter.confirmedAt);
+});
+
 test('El filtro de movimientos admite devoluciones de venta como entradas', async () => {
   const { filter } = await buildFilter('inventory-movements', { movementType: 'SALE_RETURN' });
   assert.equal(filter.type, 'SALE_RETURN');
