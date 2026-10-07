@@ -22,6 +22,7 @@ app.use(cors({
     return callback(new Error('Origen no permitido'), false);
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  exposedHeaders: ['Content-Disposition'],
   credentials: true
 }));
 app.use(express.json({ limit: '1mb' }));
