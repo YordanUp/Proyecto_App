@@ -11,13 +11,7 @@ import useDelayedFlag from '../../../hooks/useDelayedFlag';
 import { hasPermission } from '../../../services/permissions';
 import colors from '../../../theme/colors';
 import { userMessage } from '../../../api/client';
-
-const metricDefinitions = [
-  { key: 'salesToday', label: 'Ventas de hoy', money: true }, { key: 'salesMonth', label: 'Ventas del mes', money: true },
-  { key: 'pendingPurchases', label: 'Compras pendientes' }, { key: 'lowStockCount', label: 'Stock bajo' },
-  { key: 'outOfStockCount', label: 'Sin existencias' }, { key: 'receivables', label: 'Por cobrar', money: true, nested: 'balance' },
-  { key: 'payables', label: 'Por pagar', money: true, nested: 'balance' }
-];
+const { metricDefinitions, readDashboardMetric } = require('../../../services/dashboardMetrics');
 
 export default function DashboardScreen() {
   const { user, request, signOut } = useAuth();
@@ -50,8 +44,7 @@ export default function DashboardScreen() {
       <ErrorPanel error={error} onRetry={load} userMessage={userMessage} />
       {loading ? <LoadingPanel title="Cargando indicadores" detail={waking ? 'El servidor de Render puede tardar unos segundos en iniciar.' : 'Consultando el ERP…'} /> : <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
         {metricDefinitions.map(metric => {
-          const raw = summary?.metrics?.[metric.key];
-          const value = metric.nested ? raw?.[metric.nested] : raw;
+          const value = readDashboardMetric(summary?.metrics, metric);
           return <Card key={metric.key} style={{ width: '47%', flexGrow: 1, minHeight: 92, justifyContent: 'space-between' }}>
             <Text style={{ color: colors.inkMuted, fontSize: 12, fontWeight: '700' }}>{metric.label}</Text>
             {metric.money ? <MoneyText value={value} style={{ fontSize: 19 }} /> : <Text style={{ color: colors.ink, fontSize: 22, fontWeight: '800' }}>{Number(value) || 0}</Text>}
@@ -63,7 +56,7 @@ export default function DashboardScreen() {
         <View style={{ flex: 1, gap: 3 }}><Text style={{ color: colors.ink, fontWeight: '800' }}>{item.product?.name || 'Producto'}</Text><Text style={{ color: colors.inkMuted }}>{item.warehouse?.name || 'Almacén'} · Mínimo {item.minimumStock}</Text></View>
         <Text style={{ color: colors.warning, fontWeight: '800' }}>{item.availableQuantity} disp.</Text>
       </Card>)}</> : null}
-      {summary?.recentSales?.length ? <><SectionTitle title="Ventas recientes" />{summary.recentSales.map(sale => <Card key={sale.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}><View style={{ flex: 1, gap: 3 }}><Text style={{ color: colors.ink, fontWeight: '800' }}>{sale.folio}</Text><Text style={{ color: colors.inkMuted }}>{sale.customer?.name || 'Cliente'} · {sale.confirmedAt ? new Date(sale.confirmedAt).toLocaleDateString('es-MX') : ''}</Text></View><MoneyText value={sale.total} /></Card>)}</> : null}
+      {summary?.recentSales?.length ? <><SectionTitle title="Ventas recientes" />{summary.recentSales.map(sale => <Card key={sale.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}><View style={{ flex: 1, gap: 3 }}><Text style={{ color: colors.ink, fontWeight: '800' }}>{sale.folio}</Text><Text style={{ color: colors.inkMuted }}>{sale.customer?.name || 'Cliente'} · {sale.confirmedAt ? new Date(sale.confirmedAt).toLocaleDateString('es-MX') : ''}</Text></View><View><Text style={{ color: colors.inkMuted, fontSize: 11 }}>Bruto</Text><MoneyText value={sale.total} /></View></Card>)}</> : null}
       {summary?.recentFinancialMovements?.length ? <><SectionTitle title="Movimientos financieros recientes" />{summary.recentFinancialMovements.map(movement => <Card key={movement.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}><View style={{ flex: 1, gap: 3 }}><Text style={{ color: colors.ink, fontWeight: '700' }}>{movement.description || movement.type}</Text><Text style={{ color: colors.inkMuted }}>{new Date(movement.createdAt).toLocaleDateString('es-MX')} · {movement.createdBy?.name || 'Usuario'}</Text></View><MoneyText value={movement.amount} style={{ color: movement.direction === 'IN' ? colors.success : colors.warning }} /></Card>)}</> : null}
     </>}
     <SectionTitle title="Accesos rápidos" />
