@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { utcRanges, restrictDashboard, salesPeriod } = require('../src/services/dashboardService');
-const { buildFilter, csvCell, pagination, MAX_PAGE_LIMIT, MAX_EXPORT_LIMIT } = require('../src/services/reportService');
+const { buildFilter, csvCell, formatReportItems, pagination, MAX_PAGE_LIMIT, MAX_EXPORT_LIMIT, prefixSaleFilter } = require('../src/services/reportService');
 
 test('Dashboard periods use UTC day and month boundaries', () => {
   const ranges = utcRanges(new Date('2026-03-01T00:05:00.000Z'));
@@ -64,4 +64,32 @@ test('CSV fields escape quotes and protect spreadsheet formulas', () => {
   assert.equal(csvCell('Cliente "A", S.A.'), '"Cliente ""A"", S.A."');
   assert.equal(csvCell('=HYPERLINK("https://invalid")'), '"\'=HYPERLINK(""https://invalid"")"');
   assert.equal(csvCell(-4.5), '"-4.5"');
+});
+
+test('La agregación de devoluciones filtra el estado de la venta y no el estado procesado de la devolución', () => {
+  const filter = { status: 'confirmed', confirmedAt: { $gte: new Date('2026-10-01T00:00:00.000Z') }, customer: { $in: ['cliente-id'] } };
+  const parentFilter = prefixSaleFilter(filter);
+  assert.equal(parentFilter['saleDoc.status'], 'confirmed');
+  assert.equal(parentFilter.status, undefined);
+  assert.deepEqual(parentFilter['saleDoc.customer'], filter.customer);
+  assert.equal('confirmedAt' in parentFilter, false);
+});
+
+test('CSV sales formats multiple products as readable text using populated products', () => {
+  const products = formatReportItems([
+    { product: { name: 'Guanteras', code: '7001' }, productNameSnapshot: 'Nombre antiguo', skuSnapshot: 'OLD', quantity: 2500, unitPrice: 500 },
+    { product: { name: 'Veladoras', code: '7004' }, quantity: 5, unitPrice: 15 }
+  ], 'sales');
+  assert.equal(products, 'Guanteras (7001) — 2,500 × $500.00 | Veladoras (7004) — 5 × $15.00');
+  assert.equal(products.includes('{'), false);
+});
+
+test('CSV purchases formats products from populated data or historical snapshots without IDs', () => {
+  const products = formatReportItems([
+    { product: '507f1f77bcf86cd799439011', productNameSnapshot: 'Tornillo', skuSnapshot: 'TOR-1', quantity: 3, unitCost: 2.5 },
+    { product: null, productNameSnapshot: 'Tuerca', skuSnapshot: 'TUE-2', quantity: 4, unitCost: 1.25 }
+  ], 'purchases');
+  assert.equal(products, 'Tornillo (TOR-1) — 3 × $2.50 | Tuerca (TUE-2) — 4 × $1.25');
+  assert.equal(products.includes('507f1f77bcf86cd799439011'), false);
+  assert.equal(products.includes('{'), false);
 });

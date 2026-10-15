@@ -162,10 +162,10 @@ async function buildFilter(type, query) {
 function money(value) { return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100; }
 
 function prefixSaleFilter(filter) {
-  const result = { status: 'confirmed' };
+  const result = { 'saleDoc.status': 'confirmed' };
   for (const [key, value] of Object.entries(filter)) {
     if (key === 'confirmedAt') continue;
-    if (key === 'status') result.status = value;
+    if (key === 'status') result['saleDoc.status'] = value;
     else if (key === '$or') {
       result.$or = value.map(clause => Object.fromEntries(Object.entries(clause).map(([field, condition]) => [`saleDoc.${field}`, condition])));
     } else result[`saleDoc.${key}`] = value;
@@ -272,17 +272,29 @@ function csvCell(value) {
   if (!numeric && /^[=+\-@\t\r]/.test(text)) text = `'${text}`;
   return `"${text.replace(/"/g, '""')}"`;
 }
+function formatReportItems(items, type) {
+  if (!Array.isArray(items)) return '';
+  const priceField = type === 'purchases' ? 'unitCost' : 'unitPrice';
+  return items.map(item => {
+    const product = item.product && typeof item.product === 'object' ? item.product : null;
+    const name = product?.name || item.productNameSnapshot || 'Producto';
+    const code = product?.code || item.skuSnapshot || '';
+    const quantity = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 3 }).format(Number(item.quantity || 0));
+    const price = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 2 }).format(Number(item[priceField] || 0));
+    return `${name}${code ? ` (${code})` : ''} — ${quantity} × ${price}`;
+  }).join(' | ');
+}
 function flattenItem(item) {
   return Object.fromEntries(Object.entries(item).filter(([key]) => key !== '__v').map(([key, value]) => [key, value && typeof value === 'object' && !Array.isArray(value) && value._id ? (value.name || value.folio || value.code || String(value._id)) : value]));
 }
 async function exportReport(type, query = {}, userId) {
   const { items, pagination: page, totals } = await getReport(type, { ...query, page: 1, limit: MAX_EXPORT_LIMIT }, { maxLimit: MAX_EXPORT_LIMIT });
   if (page.total > MAX_EXPORT_LIMIT) throw reportError(413, 'REPORT_EXPORT_LIMIT', `El CSV supera el límite de ${MAX_EXPORT_LIMIT} registros; refine los filtros`);
-  const rows = items.map(flattenItem);
+  const rows = items.map(item => ({ ...flattenItem(item), ...(type === 'sales' || type === 'purchases' ? { items: formatReportItems(item.items, type) } : {}) }));
   const columns = CSV_COLUMNS[type];
   const csv = [columns.map(column => csvCell((type === 'sales-returns' && RETURN_CSV_HEADERS[column]) || CSV_HEADERS[column] || column)).join(','), ...rows.map(row => columns.map(column => csvCell(row[column])).join(','))].join('\r\n');
   await recordAudit({ userId, action: 'report.exported', module: 'reports', recordId: type, after: { filters: query, total: page.total, totals } });
   return { csv: `\uFEFF${csv}`, filename: `${type}-${new Date().toISOString().slice(0, 10)}.csv` };
 }
 
-module.exports = { getReport, exportReport, buildFilter, csvCell, REPORTS, pagination, MAX_PAGE_LIMIT, MAX_EXPORT_LIMIT, prefixSaleFilter, salesReport };
+module.exports = { getReport, exportReport, buildFilter, csvCell, formatReportItems, REPORTS, pagination, MAX_PAGE_LIMIT, MAX_EXPORT_LIMIT, prefixSaleFilter, salesReport };

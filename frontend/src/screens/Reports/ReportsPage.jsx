@@ -22,7 +22,7 @@ export default function ReportsPage() {
   const [page, setPage] = useState(1);
   const [report, setReport] = useState({ items: [], pagination: { page: 1, limit: 25, total: 0, pages: 0 }, totals: {} });
   const [loading, setLoading] = useState(false);
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -63,30 +63,37 @@ export default function ReportsPage() {
   }, [report.items, type]);
   const updateFilter = (key, value) => { setPage(1); setFilters(current => ({ ...current, [key]: value })); };
 
-  async function exportCsv() {
-    setExporting(true); setError(''); setNotice('');
+  function exportParams() {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value && key !== 'lowStock' && applicable[key]) params.set(type === 'sales-returns' && key === 'customer' ? 'customerId' : key, value);
+      if (key === 'lowStock' && value) params.set(key, 'true');
+    }
+    return params;
+  }
+
+  async function exportReport(format) {
+    setExporting(format); setError(''); setNotice('');
     try {
-      const params = new URLSearchParams();
-      for (const [key, value] of Object.entries(filters)) {
-        if (value && key !== 'lowStock' && applicable[key]) params.set(type === 'sales-returns' && key === 'customer' ? 'customerId' : key, value);
-        if (key === 'lowStock' && value) params.set(key, 'true');
-      }
+      const params = exportParams();
       const token = localStorage.getItem('erp_token');
-      const response = await fetch(`${API_URL}/api/reports/data/${type}/export.csv?${params}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const response = await fetch(`${API_URL}/api/reports/data/${type}/export.${format}?${params}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.message || 'No se pudo exportar el reporte.');
+        throw new Error(payload.message || `No se pudo generar el reporte ${format.toUpperCase()}.`);
       }
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${type}.csv`; anchor.click(); URL.revokeObjectURL(url);
-      setNotice('CSV exportado y registrado en auditoría.');
-    } catch (exportError) { setError(exportError.message); }
-    finally { setExporting(false); }
+      const disposition = response.headers?.get('content-disposition') || '';
+      const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1] || `${type}.${format}`;
+      const anchor = document.createElement('a'); anchor.href = url; anchor.download = filename; anchor.click(); URL.revokeObjectURL(url);
+      setNotice(format === 'docx' ? 'Reporte Word exportado correctamente.' : 'CSV exportado y registrado en auditoría.');
+    } catch (exportError) { setError(exportError.message || `No se pudo generar el reporte ${format.toUpperCase()}.`); }
+    finally { setExporting(''); }
   }
 
   return <div className="app-shell dashboard-layout reports-page">
-    <div className="dashboard-section-heading dashboard-welcome"><div><span className="eyebrow">Análisis operativo</span><h2>Reportes</h2><p>Consulta datos persistidos y exporta el resultado filtrado.</p></div><button className="primary-button" type="button" onClick={exportCsv} disabled={exporting || loading}>{exporting ? 'Exportando…' : 'Exportar CSV'}</button></div>
+    <div className="dashboard-section-heading dashboard-welcome"><div><span className="eyebrow">Análisis operativo</span><h2>Reportes</h2><p>Consulta datos persistidos y exporta el resultado filtrado.</p></div><div className="report-export-actions"><button className="primary-button" type="button" onClick={() => exportReport('csv')} disabled={Boolean(exporting) || loading}>{exporting === 'csv' ? 'Exportando…' : 'Exportar CSV'}</button>{['sales', 'purchases'].includes(type) && <button className="secondary" type="button" onClick={() => exportReport('docx')} disabled={Boolean(exporting) || loading}>{exporting === 'docx' ? 'Generando Word…' : 'Exportar Word'}</button>}</div></div>
     <section className="card report-filters" aria-label="Filtros del reporte">
       <label>Reporte<select value={type} onChange={event => { setType(event.target.value); setPage(1); }} aria-label="Tipo de reporte">{REPORT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       {applicable.dates && <><label>Desde<input type="date" value={filters.from} onChange={event => updateFilter('from', event.target.value)} /></label><label>Hasta<input type="date" value={filters.to} onChange={event => updateFilter('to', event.target.value)} /></label></>}

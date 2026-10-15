@@ -1,4 +1,5 @@
 const reportService = require('../services/reportService');
+const reportDocumentService = require('../services/reportDocumentService');
 const auditService = require('../services/auditService');
 const { successResponse } = require('../utils/response');
 
@@ -18,6 +19,15 @@ async function exportDataReport(req, res, next) {
   } catch (error) { return next(error); }
 }
 
+async function exportDocxReport(req, res, next) {
+  try {
+    const result = await reportDocumentService.exportDocxReport(req.params.type, req.query, req.user.id);
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+    return res.status(200).send(result.buffer);
+  } catch (error) { return next(error); }
+}
+
 async function getAuditLogs(req, res, next) {
   try {
     const result = await auditService.listAuditLogs(req.query);
@@ -25,4 +35,4 @@ async function getAuditLogs(req, res, next) {
   } catch (error) { return next(error); }
 }
 
-module.exports = { getDataReport, exportDataReport, getAuditLogs };
+module.exports = { getDataReport, exportDataReport, exportDocxReport, getAuditLogs };
