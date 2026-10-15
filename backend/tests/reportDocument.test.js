@@ -1,6 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const path = require('node:path');
 const { Packer } = require('docx');
+const JSZip = require('jszip');
+const { xml2js } = require('xml-js');
 const {
   buildDocument,
   formatProductText,
@@ -50,10 +54,55 @@ test('DOCX-006: purchase summary uses the report API totals and supplier groupin
   ]);
 });
 
-test('DOCX document builds as a real ZIP-based Word document', async () => {
-  const document = buildDocument('sales', [], { recordCount: 0, grossTotal: 0, returnsTotal: 0, netTotal: 0 }, {});
-  const buffer = await Packer.toBuffer(document);
-  assert.equal(buffer.subarray(0, 4).toString('hex'), '504b0304');
+test('DOCX sales and purchases exports are valid Word ZIP/XML documents with readable content', async () => {
+  const tempPath = path.join(__dirname, '..', 'tmp', 'report-word-validation.docx');
+  await fs.mkdir(path.dirname(tempPath), { recursive: true });
+  const fixtures = [
+    {
+      type: 'sales',
+      items: [{ folio: 'V-TEST-01', status: 'confirmed', confirmedAt: '2026-10-01T12:00:00.000Z', customer: { name: 'Cliente Exportación' }, grossTotal: 500, returnedTotal: 20, netTotal: 480, items: [{ product: { name: 'Guanteras históricas', code: 'G-500' }, quantity: 1, unitPrice: 500 }] }],
+      totals: { recordCount: 1, grossTotal: 500, returnsTotal: 20, netTotal: 480 },
+      expected: ['Reporte de Ventas', 'Cliente Exportación', 'Guanteras históricas', 'V-TEST-01', '$500.00']
+    },
+    {
+      type: 'purchases',
+      items: [{ folio: 'C-TEST-01', createdAt: '2026-10-10T12:00:00.000Z', supplier: { name: 'Proveedor Exportación' }, subtotal: 400, taxes: 64, total: 464, items: [{ product: { name: 'Producto de compra', code: 'P-464' }, quantity: 2, unitCost: 200 }] }],
+      totals: { recordCount: 1, subtotal: 400, taxes: 64, total: 464 },
+      expected: ['Reporte de Compras', 'Proveedor Exportación', 'Producto de compra', 'C-TEST-01', '$464.00']
+    }
+  ];
+
+  try {
+    for (const fixture of fixtures) {
+      const document = buildDocument(fixture.type, fixture.items, fixture.totals, { from: '2026-10-01', to: '2026-10-31' }, new Date('2026-10-31T12:00:00.000Z'));
+      const buffer = await Packer.toBuffer(document);
+      assert.equal(buffer.subarray(0, 4).toString('hex'), '504b0304');
+      await fs.writeFile(tempPath, buffer);
+
+      const zip = await JSZip.loadAsync(await fs.readFile(tempPath));
+      assert.ok(zip.file('[Content_Types].xml'));
+      assert.ok(zip.file('word/document.xml'));
+      assert.ok(zip.file('_rels/.rels'));
+
+      for (const entry of Object.values(zip.files).filter(file => !file.dir && (/\.xml$|\.rels$/).test(file.name))) {
+        const xml = await entry.async('string');
+        assert.doesNotThrow(() => xml2js(xml), `XML inválido en ${entry.name}`);
+        assert.doesNotMatch(xml, /\[object Object\]|"product"\s*:/);
+      }
+
+      const documentXml = await zip.file('word/document.xml').async('string');
+      const parsed = xml2js(documentXml, { compact: true });
+      const collectText = node => {
+        if (!node || typeof node !== 'object') return [];
+        return [ ...(typeof node._text === 'string' ? [node._text] : []), ...Object.values(node).flatMap(collectText) ];
+      };
+      const text = collectText(parsed).join(' ');
+      for (const expected of fixture.expected) assert.ok(text.includes(expected), `${fixture.type} no contiene ${expected}`);
+      assert.doesNotMatch(text, /\[object Object\]|"product"\s*:/);
+    }
+  } finally {
+    await fs.rm(tempPath, { force: true });
+  }
 });
 
 test('DOCX export filenames include a sanitized period and export limit is bounded', () => {

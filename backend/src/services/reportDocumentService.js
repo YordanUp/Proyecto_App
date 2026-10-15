@@ -5,6 +5,7 @@ const {
   HeadingLevel,
   Packer,
   Paragraph,
+  TextRun,
   Table,
   TableCell,
   TableRow,
@@ -27,7 +28,7 @@ function plainName(value, fallback = 'Sin nombre') {
 
 function formatProducts(items, type) {
   if (!Array.isArray(items) || items.length === 0) return [new Paragraph('Sin productos')];
-  return items.map(item => new Paragraph({ text: formatProductText(item, type), bullet: { indent: 240 } }));
+  return items.map(item => new Paragraph(`• ${formatProductText(item, type)}`));
 }
 
 function formatProductText(item, type) {
@@ -58,6 +59,9 @@ function periodLabel(query) {
 }
 
 function paragraph(text, options = {}) {
+  if (typeof text !== 'string' && typeof text !== 'number') {
+    throw new TypeError('El contenido de un párrafo debe ser texto o número');
+  }
   return new Paragraph({ text: String(text), ...options });
 }
 
@@ -66,10 +70,16 @@ function heading(text, level = HeadingLevel.HEADING_1) {
 }
 
 function tableCell(value, { header = false, width } = {}) {
-  const text = Array.isArray(value) ? value : [paragraph(value == null ? '—' : value)];
+  const values = Array.isArray(value) ? value : [value];
+  const children = values.flatMap(item => {
+    if (item instanceof Paragraph) return [item];
+    if (typeof item === 'string' || typeof item === 'number') return [paragraph(item)];
+    if (item == null) return [paragraph('—')];
+    throw new TypeError('Las celdas de tabla solo aceptan texto, números o párrafos');
+  });
   return new TableCell({
     width: width ? { size: width, type: WidthType.PERCENTAGE } : undefined,
-    children: text,
+    children,
     ...(header ? { shading: { fill: 'EAF2F8' } } : {})
   });
 }
@@ -77,7 +87,7 @@ function tableCell(value, { header = false, width } = {}) {
 function dataTable(headers, rows, widths) {
   const border = { style: BorderStyle.SINGLE, size: 1, color: 'D5DCE3' };
   const borders = { top: border, bottom: border, left: border, right: border, insideHorizontal: border, insideVertical: border };
-  const header = new TableRow({ tableHeader: true, children: headers.map((label, index) => tableCell(paragraph(label, { bold: true }), { header: true, width: widths?.[index] })) });
+  const header = new TableRow({ tableHeader: true, children: headers.map((label, index) => tableCell(new Paragraph({ children: [new TextRun({ text: label, bold: true })] }), { header: true, width: widths?.[index] })) });
   const body = rows.map(row => new TableRow({ children: row.map((value, index) => tableCell(value, { width: widths?.[index] })) }));
   return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders, rows: [header, ...body] });
 }
