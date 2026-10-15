@@ -5,6 +5,7 @@ const { Product, Supplier, Warehouse } = require('../models/catalog');
 const inventoryService = require('./inventoryService');
 const { recordAudit } = require('./auditService');
 const { notifyPermission } = require('./notificationService');
+const { UNIT_QUANTITY_ERROR, isValidUnitQuantity } = require('../utils/unitQuantity');
 const financeService = require('./financeService');
 
 const MAX_PAGE_SIZE = 100;
@@ -121,8 +122,8 @@ async function calculateItems(inputItems, session) {
   for (const [index, input] of inputItems.entries()) {
     const productId = objectId(input?.productId || input?.product, `items[${index}].productId`);
     const warehouseId = objectId(input?.warehouseId || input?.warehouse, `items[${index}].warehouseId`);
-    const quantity = Number(input.quantity);
-    if (!Number.isFinite(quantity) || quantity <= 0) throw purchaseError(400, 'VALIDATION_ERROR', `La cantidad del producto ${index + 1} debe ser mayor a cero`);
+    const quantity = Number(input?.quantity);
+    if (!isValidUnitQuantity(input?.quantity)) throw purchaseError(400, 'VALIDATION_ERROR', UNIT_QUANTITY_ERROR);
     const product = await Product.findOne({ _id: productId, status: 'active' }).session(session);
     const warehouse = await Warehouse.findOne({ _id: warehouseId, status: 'active' }).session(session);
     if (!product) throw purchaseError(404, 'PRODUCT_NOT_FOUND', `El producto de la línea ${index + 1} no existe o está inactivo`);
@@ -152,6 +153,7 @@ async function nextFolio(session) {
 async function createPurchase(data, actorId) {
   const supplierId = objectId(data?.supplierId || data?.supplier, 'supplierId');
   const createdBy = objectId(actorId, 'usuario');
+  validateItemQuantities(data?.items);
   return runTransaction(async session => {
     const supplier = await validateSupplier(supplierId, session);
     const items = await calculateItems(data.items, session);
@@ -165,6 +167,7 @@ async function createPurchase(data, actorId) {
 async function updatePurchase(id, data, actorId) {
   const purchaseId = objectId(id, 'id');
   const userId = objectId(actorId, 'usuario');
+  if (data?.items !== undefined) validateItemQuantities(data.items);
   return runTransaction(async session => {
     const purchase = await Purchase.findById(purchaseId).session(session);
     if (!purchase) return null;
@@ -177,6 +180,11 @@ async function updatePurchase(id, data, actorId) {
     await recordAudit({ userId, action: 'purchase.updated', module: 'purchases', recordId: purchase.id, before, after: purchase, session });
     return serializePurchase(purchase);
   });
+}
+
+function validateItemQuantities(items) {
+  if (!Array.isArray(items)) return;
+  if (items.some(item => !isValidUnitQuantity(item?.quantity))) throw purchaseError(400, 'VALIDATION_ERROR', UNIT_QUANTITY_ERROR);
 }
 
 async function orderPurchase(id, actorId) {

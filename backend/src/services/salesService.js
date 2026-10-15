@@ -5,6 +5,7 @@ const Sequence = require('../models/Sequence');
 const { Client, Product, Warehouse } = require('../models/catalog');
 const inventoryService = require('./inventoryService');
 const { recordAudit } = require('./auditService');
+const { UNIT_QUANTITY_ERROR, isValidUnitQuantity } = require('../utils/unitQuantity');
 const { notifyPermission } = require('./notificationService');
 const financeService = require('./financeService');
 
@@ -130,8 +131,8 @@ async function calculateItems(inputItems, session) {
   for (const [index, input] of inputItems.entries()) {
     const productId = objectId(input?.productId || input?.product, `items[${index}].productId`);
     const warehouseId = objectId(input?.warehouseId || input?.warehouse, `items[${index}].warehouseId`);
-    const quantity = Number(input.quantity);
-    if (!Number.isFinite(quantity) || quantity <= 0) throw salesError(400, 'VALIDATION_ERROR', `La cantidad del producto ${index + 1} debe ser mayor a cero`);
+    const quantity = Number(input?.quantity);
+    if (!isValidUnitQuantity(input?.quantity)) throw salesError(400, 'VALIDATION_ERROR', UNIT_QUANTITY_ERROR);
     const product = await Product.findOne({ _id: productId, status: 'active' }).session(session);
     const warehouse = await Warehouse.findOne({ _id: warehouseId, status: 'active' }).session(session);
     if (!product) throw salesError(404, 'PRODUCT_NOT_FOUND', `El producto de la línea ${index + 1} no existe o está inactivo`);
@@ -177,8 +178,8 @@ async function createSale(data, actorId) {
   data.items.forEach((item, index) => {
     objectId(item?.productId || item?.product, `items[${index}].productId`);
     objectId(item?.warehouseId || item?.warehouse, `items[${index}].warehouseId`);
-    if (!Number.isFinite(Number(item.quantity)) || Number(item.quantity) <= 0) {
-      throw salesError(400, 'VALIDATION_ERROR', `La cantidad del producto ${index + 1} debe ser mayor a cero`);
+    if (!isValidUnitQuantity(item.quantity)) {
+      throw salesError(400, 'VALIDATION_ERROR', UNIT_QUANTITY_ERROR);
     }
   });
   return runTransaction(session => createSaleInSession(data, actorId, session));

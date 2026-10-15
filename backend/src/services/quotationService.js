@@ -5,6 +5,7 @@ const { Client } = require('../models/catalog');
 const salesService = require('./salesService');
 const { recordAudit } = require('./auditService');
 const { notifyPermission } = require('./notificationService');
+const { UNIT_QUANTITY_ERROR, isValidUnitQuantity } = require('../utils/unitQuantity');
 
 const MAX_PAGE_SIZE = 100;
 const STATUSES = ['draft', 'sent', 'accepted', 'rejected', 'converted', 'cancelled'];
@@ -94,6 +95,7 @@ async function nextQuotationFolio(session) {
 async function createQuotation(data, actorId) {
   const customerId = salesService.objectId(data?.customerId, 'customerId');
   const userId = salesService.objectId(actorId, 'usuario');
+  validateItemQuantities(data?.items);
   return salesService.runTransaction(async session => {
     const customer = await salesService.validateCustomer(customerId, session);
     const items = await salesService.calculateItems(data.items, session);
@@ -111,6 +113,7 @@ async function createQuotation(data, actorId) {
 async function updateQuotation(id, data, actorId) {
   const quotationId = salesService.objectId(id, 'id');
   const userId = salesService.objectId(actorId, 'usuario');
+  if (data?.items !== undefined) validateItemQuantities(data.items);
   return salesService.runTransaction(async session => {
     const quotation = await Quotation.findById(quotationId).session(session);
     if (!quotation) return null;
@@ -129,6 +132,11 @@ async function updateQuotation(id, data, actorId) {
     await recordAudit({ userId, action: 'quotation.update', module: 'sales', recordId: quotation.id, before, after: quotation, session });
     return serializeQuotation(quotation);
   });
+}
+
+function validateItemQuantities(items) {
+  if (!Array.isArray(items)) return;
+  if (items.some(item => !isValidUnitQuantity(item?.quantity))) throw salesService.salesError(400, 'VALIDATION_ERROR', UNIT_QUANTITY_ERROR);
 }
 
 const transitions = {

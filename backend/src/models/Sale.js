@@ -1,11 +1,12 @@
 const mongoose = require('mongoose');
+const { UNIT_QUANTITY_ERROR, isValidUnitQuantity } = require('../utils/unitQuantity');
 
 const saleItemSchema = new mongoose.Schema({
   product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
   warehouse: { type: mongoose.Schema.Types.ObjectId, ref: 'Warehouse', required: true },
   productNameSnapshot: { type: String, required: true, trim: true, maxlength: 160 },
   skuSnapshot: { type: String, trim: true, maxlength: 64, default: '' },
-  quantity: { type: Number, required: true, min: 0.000001 },
+  quantity: { type: Number, required: true, validate: { validator: isValidUnitQuantity, message: UNIT_QUANTITY_ERROR } },
   unitPrice: { type: Number, required: true, min: 0 },
   taxRate: { type: Number, required: true, min: 0, max: 100, default: 0 },
   tax: { type: Number, required: true, min: 0, default: 0 },
