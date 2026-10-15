@@ -312,7 +312,12 @@ test('MongoDB integration: auth, RBAC, uniqueness, catalogs and audit', {
   assert.equal((await request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send({ customerId: client.body.data.id, items: [] })).status, 400);
   assert.equal((await request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send({ customerId: 'bad-id', items: createSalePayload.items })).status, 400);
   assert.equal((await request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send({ customerId: new mongoose.Types.ObjectId().toString(), items: createSalePayload.items })).status, 404);
-  assert.equal((await request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send({ ...createSalePayload, items: [{ ...createSalePayload.items[0], quantity: 0 }] })).status, 400);
+  for (const quantity of [0, -1, 0.5]) {
+    const invalidQuantity = await request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send({ ...createSalePayload, items: [{ ...createSalePayload.items[0], quantity }] });
+    assert.equal(invalidQuantity.status, 400);
+    assert.equal(invalidQuantity.body.error, 'VALIDATION_ERROR');
+    assert.equal(invalidQuantity.body.message, 'La cantidad debe ser un número entero mayor o igual a 1.');
+  }
   assert.equal((await request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send({ ...createSalePayload, items: [{ ...createSalePayload.items[0], unitPrice: 1 }] })).status, 400);
   assert.equal((await request(app).post(salesRoute).set('Authorization', `Bearer ${admin}`).send({ ...createSalePayload, items: [{ ...createSalePayload.items[0], productId: new mongoose.Types.ObjectId().toString() }] })).status, 404);
 

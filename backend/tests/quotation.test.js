@@ -36,3 +36,15 @@ test('QUO-MODEL-003: folio tiene índice único y hay índices para estado y cli
 test('QUO-API-001: identificador inválido se rechaza antes de consultar MongoDB', async () => {
   await assert.rejects(service.getQuotationById('invalid'), error => error.statusCode === 400 && error.errorCode === 'VALIDATION_ERROR');
 });
+
+test('NUM-API-006: cotización rechaza cantidades fraccionarias o menores a uno antes de MongoDB', async () => {
+  const actorId = new mongoose.Types.ObjectId();
+  for (const quantity of [0, -1, 0.5, 0.000001, 1.5]) {
+    await assert.rejects(
+      service.createQuotation({ customerId: base().customerId, items: [{ productId: base().items[0].product, warehouseId: base().items[0].warehouse, quantity }] }, actorId),
+      error => error.statusCode === 400 && error.errorCode === 'VALIDATION_ERROR' && error.message === 'La cantidad debe ser un número entero mayor o igual a 1.'
+    );
+    await assert.rejects(new Quotation({ ...base(), items: [{ ...base().items[0], quantity }] }).validate(), error => Boolean(error.errors['items.0.quantity']));
+  }
+  await new Quotation(base()).validate();
+});

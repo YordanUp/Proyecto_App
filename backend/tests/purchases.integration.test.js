@@ -69,8 +69,12 @@ test('MongoDB integration: persistent purchase workflow and transactional receiv
 
   const missingSupplier = await request(app).post(route).set('Authorization', `Bearer ${admin}`).send({ items: [lines[0]] });
   assert.equal(missingSupplier.status, 400);
-  const invalidQuantity = await request(app).post(route).set('Authorization', `Bearer ${admin}`).send(body([{ ...lines[0], quantity: 0 }]));
-  assert.equal(invalidQuantity.status, 400);
+  for (const quantity of [0, -1, 0.5]) {
+    const invalidQuantity = await request(app).post(route).set('Authorization', `Bearer ${admin}`).send(body([{ ...lines[0], quantity }]));
+    assert.equal(invalidQuantity.status, 400);
+    assert.equal(invalidQuantity.body.error, 'VALIDATION_ERROR');
+    assert.equal(invalidQuantity.body.message, 'La cantidad debe ser un número entero mayor o igual a 1.');
+  }
   const duplicateIds = await Promise.all(Array.from({ length: 5 }, () => request(app).post(route).set('Authorization', `Bearer ${admin}`).send(body([{ ...lines[0], quantity: 1 }]))));
   assert.ok(duplicateIds.every(response => response.status === 201), 'los folios se reservan sin colisiones');
   const folios = [created.body.data.folio, ...duplicateIds.map(response => response.body.data.folio)];

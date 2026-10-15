@@ -77,7 +77,12 @@ test('QUO: persistencia, estados, RBAC, conversión y rollback transaccional', {
 
   assert.equal((await request(app).post(quoteUrl).set(auth).send({ ...body, customerId: new mongoose.Types.ObjectId() })).status, 404, 'QUO-003 cliente inexistente');
   assert.equal((await request(app).post(quoteUrl).set(auth).send({ ...body, items: [{ ...body.items[0], productId: new mongoose.Types.ObjectId() }] })).status, 404, 'QUO-004 producto inexistente');
-  assert.equal((await request(app).post(quoteUrl).set(auth).send({ ...body, items: [{ ...body.items[0], quantity: 0 }] })).status, 400, 'cantidad inválida');
+  for (const quantity of [0, -1, 0.5]) {
+    const invalidQuantity = await request(app).post(quoteUrl).set(auth).send({ ...body, items: [{ ...body.items[0], quantity }] });
+    assert.equal(invalidQuantity.status, 400, 'cantidad inválida');
+    assert.equal(invalidQuantity.body.error, 'VALIDATION_ERROR');
+    assert.equal(invalidQuantity.body.message, 'La cantidad debe ser un número entero mayor o igual a 1.');
+  }
 
   const list = await request(app).get(`${quoteUrl}?search=${created.body.data.folio}&status=draft&page=1&limit=10&sort=folio&order=asc`).set(auth);
   assert.equal(list.status, 200, 'QUO-005 listado con búsqueda, filtros y paginación');

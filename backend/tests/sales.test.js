@@ -30,3 +30,23 @@ test('Sales service rejects malformed identifiers and missing item lines before 
   await assert.rejects(salesService.createSale({ customerId: 'invalid', items: [] }, new mongoose.Types.ObjectId()), error => error.statusCode === 400 && error.errorCode === 'VALIDATION_ERROR');
   await assert.rejects(salesService.getSaleById('invalid'), error => error.statusCode === 400 && error.errorCode === 'VALIDATION_ERROR');
 });
+
+test('NUM-API-001..004: sale requires a whole quantity of at least one before database access', async () => {
+  const customerId = new mongoose.Types.ObjectId();
+  const actorId = new mongoose.Types.ObjectId();
+  const productId = new mongoose.Types.ObjectId();
+  const warehouseId = new mongoose.Types.ObjectId();
+  for (const quantity of [0, -1, 0.5, 0.000001, 1.5]) {
+    await assert.rejects(
+      salesService.createSale({ customerId, items: [{ productId, warehouseId, quantity }] }, actorId),
+      error => error.statusCode === 400 && error.errorCode === 'VALIDATION_ERROR' && error.message === 'La cantidad debe ser un número entero mayor o igual a 1.'
+    );
+  }
+
+  const valid = new Sale({
+    folio: 'VEN-2026-000003', customer: customerId, createdBy: actorId,
+    items: [{ product: productId, warehouse: warehouseId, productNameSnapshot: 'Producto', quantity: 1, unitPrice: 10, tax: 0, subtotal: 10, total: 10 }],
+    subtotal: 10, taxes: 0, total: 10, status: 'draft'
+  });
+  await valid.validate();
+});
