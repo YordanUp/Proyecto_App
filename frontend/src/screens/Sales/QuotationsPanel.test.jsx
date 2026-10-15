@@ -32,8 +32,21 @@ describe('QuotationsPanel', () => {
   });
   it('QUO-WEB-002 crea mediante API y carga catálogos persistentes', async () => {
     mockApi(); await openQuotations(); fireEvent.click(await screen.findByRole('button', { name: '+ Nueva cotización' })); const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByLabelText('Cantidad')).toHaveAttribute('min', '1');
+    expect(within(dialog).getByLabelText('Cantidad')).toHaveAttribute('step', '1');
+    expect(within(dialog).getByLabelText('Precio unitario')).toHaveAttribute('step', '0.01');
+    expect(within(dialog).getByLabelText('Impuesto %')).toHaveAttribute('min', '0');
+    expect(within(dialog).getByLabelText('Impuesto %')).toHaveAttribute('max', '100');
+    expect(within(dialog).getByLabelText('Impuesto %')).toHaveAttribute('step', '0.01');
     fireEvent.change(within(dialog).getByLabelText('Cliente'), { target: { value: client.id } }); fireEvent.change(within(dialog).getByLabelText('Producto'), { target: { value: product.id } }); fireEvent.change(within(dialog).getByLabelText('Almacén'), { target: { value: warehouse.id } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Guardar borrador' })); await waitFor(() => expect(apiRequest).toHaveBeenCalledWith('/api/sales/quotations', expect.objectContaining({ method: 'POST' })));
+  });
+  it('NUM-WEB-008: cotización rechaza cantidad inválida sin llamar a la API', async () => {
+    mockApi(); await openQuotations(); fireEvent.click(await screen.findByRole('button', { name: '+ Nueva cotización' })); const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('Cantidad'), { target: { value: '0.5' } });
+    fireEvent.submit(dialog.querySelector('form'));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('La cantidad debe ser mayor o igual a 1.');
+    expect(apiRequest).not.toHaveBeenCalledWith('/api/sales/quotations', expect.objectContaining({ method: 'POST' }));
   });
   it('QUO-WEB-003 edita un borrador y recalcula mediante PUT', async () => {
     mockApi(); await openQuotations(); fireEvent.click(await screen.findByRole('button', { name: 'Editar' })); const dialog = await screen.findByRole('dialog'); fireEvent.click(within(dialog).getByRole('button', { name: 'Guardar borrador' })); await waitFor(() => expect(apiRequest).toHaveBeenCalledWith('/api/sales/quotations/quote-1', expect.objectContaining({ method: 'PUT' })));

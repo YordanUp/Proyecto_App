@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../../services/api';
+import NumericInput from '../../components/NumericInput';
 
 const labels = { draft: 'Borrador', sent: 'Enviada', accepted: 'Aceptada', rejected: 'Rechazada', converted: 'Convertida', cancelled: 'Cancelada' };
 const money = value => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(value) || 0);
@@ -14,7 +15,12 @@ function QuoteForm({ quote, catalogs, onSave, onClose }) {
   const subtotal = items.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unitPrice || catalogs.products.find(p => p.id === item.productId)?.salePrice || 0), 0);
   const taxes = items.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unitPrice || catalogs.products.find(p => p.id === item.productId)?.salePrice || 0) * Number(item.taxRate || 0) / 100, 0);
   async function submit(event) {
-    event.preventDefault(); setError(''); setSaving(true);
+    event.preventDefault(); setError('');
+    if (items.some(item => !Number.isInteger(Number(item.quantity)) || Number(item.quantity) < 1)) {
+      setError(items.length === 1 ? 'La cantidad debe ser mayor o igual a 1.' : 'La cantidad de cada producto debe ser mayor o igual a 1.');
+      return;
+    }
+    setSaving(true);
     try { await onSave({ customerId, items: items.map(item => ({ productId: item.productId, warehouseId: item.warehouseId, quantity: Number(item.quantity), unitPrice: Number(item.unitPrice), taxRate: Number(item.taxRate) })) }); }
     catch (e) { setError(e.message || 'No se pudo guardar la cotización.'); } finally { setSaving(false); }
   }
@@ -24,7 +30,7 @@ function QuoteForm({ quote, catalogs, onSave, onClose }) {
       {items.map((item, i) => <fieldset className="sales-line" key={i}><legend>Partida {i + 1}</legend>
         <label>Producto<select required value={item.productId} onChange={e => { const p = catalogs.products.find(value => value.id === e.target.value); change(i, 'productId', e.target.value); if (p) change(i, 'unitPrice', String(p.salePrice)); }}><option value="">Selecciona producto</option>{catalogs.products.map(p => <option key={p.id} value={p.id}>{p.code} · {p.name}</option>)}</select></label>
         <label>Almacén<select required value={item.warehouseId} onChange={e => change(i, 'warehouseId', e.target.value)}><option value="">Selecciona almacén</option>{catalogs.warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select></label>
-        <div className="sales-line-numbers"><label>Cantidad<input type="number" min="0.000001" step="any" required value={item.quantity} onChange={e => change(i, 'quantity', e.target.value)} /></label><label>Precio unitario<input type="number" min="0" step="0.01" required value={item.unitPrice} onChange={e => change(i, 'unitPrice', e.target.value)} /></label><label>Impuesto %<input type="number" min="0" max="100" step="0.01" value={item.taxRate} onChange={e => change(i, 'taxRate', e.target.value)} /></label></div>
+        <div className="sales-line-numbers"><label>Cantidad<NumericInput min="1" step="1" required value={item.quantity} onChange={e => change(i, 'quantity', e.target.value)} /></label><label>Precio unitario<NumericInput min="0" step="0.01" required value={item.unitPrice} onChange={e => change(i, 'unitPrice', e.target.value)} /></label><label>Impuesto %<NumericInput min="0" max="100" step="0.01" value={item.taxRate} onChange={e => change(i, 'taxRate', e.target.value)} /></label></div>
         {items.length > 1 ? <button type="button" className="sales-remove-line" onClick={() => setItems(current => current.filter((_, n) => n !== i))}>Quitar partida</button> : null}
       </fieldset>)}
       <button type="button" className="secondary" onClick={() => setItems(current => [...current, blankItem()])}>+ Agregar producto</button>

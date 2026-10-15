@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../../services/api';
+import NumericInput from '../../components/NumericInput';
 import QuotationsPanel from './QuotationsPanel';
 import ReturnsPanel from './ReturnsPanel';
 
@@ -41,8 +42,12 @@ function SaleForm({ clients, products, warehouses, loading, loadError, onClose, 
   async function submit(event) {
     event.preventDefault();
     setError('');
+    if (!items.length) return setError('Agrega al menos un producto a la venta.');
+    if (items.some(item => !Number.isInteger(Number(item.quantity)) || Number(item.quantity) < 1)) {
+      return setError(items.length === 1 ? 'La cantidad debe ser mayor o igual a 1.' : 'La cantidad de cada producto debe ser mayor o igual a 1.');
+    }
     if (!customerId) return setError('Selecciona un cliente.');
-    if (!items.length || items.some(item => !item.productId || !item.warehouseId || Number(item.quantity) <= 0)) return setError('Completa producto, almacén y cantidad mayor a cero en cada partida.');
+    if (items.some(item => !item.productId || !item.warehouseId)) return setError('Selecciona producto y almacén para cada partida.');
     setSaving(true);
     try {
       await onCreate({ customerId, items: items.map(item => ({
@@ -86,9 +91,9 @@ function SaleForm({ clients, products, warehouses, loading, loadError, onClose, 
               </select>
             </label>
             <div className="sales-line-numbers">
-              <label>Cantidad<input aria-label={`Cantidad partida ${index + 1}`} type="number" min="0.000001" step="any" value={item.quantity} onChange={event => updateItem(index, 'quantity', event.target.value)} required /></label>
-              <label>Precio unitario<input aria-label={`Precio partida ${index + 1}`} type="number" min={selected?.purchasePrice || 0} step="0.01" value={item.unitPrice === '' && selected ? selected.salePrice : item.unitPrice} onChange={event => updateItem(index, 'unitPrice', event.target.value)} required /></label>
-              <label>Impuesto %<input aria-label={`Impuesto partida ${index + 1}`} type="number" min="0" max="100" step="0.01" value={item.taxRate} onChange={event => updateItem(index, 'taxRate', event.target.value)} /></label>
+              <label>Cantidad<NumericInput aria-label={`Cantidad partida ${index + 1}`} min="1" step="1" value={item.quantity} onChange={event => updateItem(index, 'quantity', event.target.value)} required /></label>
+              <label>Precio unitario<NumericInput aria-label={`Precio partida ${index + 1}`} min={selected?.purchasePrice || 0} step="0.01" value={item.unitPrice === '' && selected ? selected.salePrice : item.unitPrice} onChange={event => updateItem(index, 'unitPrice', event.target.value)} required /></label>
+              <label>Impuesto %<NumericInput aria-label={`Impuesto partida ${index + 1}`} min="0" max="100" step="0.01" value={item.taxRate} onChange={event => updateItem(index, 'taxRate', event.target.value)} /></label>
             </div>
             {items.length > 1 ? <button type="button" className="sales-remove-line" onClick={() => setItems(current => current.filter((_, lineIndex) => lineIndex !== index))}>Quitar partida</button> : null}
           </fieldset>;

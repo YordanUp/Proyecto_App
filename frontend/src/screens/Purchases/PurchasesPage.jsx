@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../../services/api';
+import NumericInput from '../../components/NumericInput';
 
 const PAGE_SIZE = 20;
 const STATUS_LABELS = { draft: 'Borrador', ordered: 'Ordenada', received: 'Recibida', cancelled: 'Cancelada' };
@@ -23,8 +24,10 @@ function PurchaseForm({ suppliers, products, warehouses, loading, loadError, onC
   }, { subtotal: 0, taxes: 0 }), [items, products]);
   async function submit(event) {
     event.preventDefault(); setError('');
+    if (!items.length) return setError('Agrega al menos un producto a la compra.');
+    if (items.some(item => !Number.isInteger(Number(item.quantity)) || Number(item.quantity) < 1)) return setError('La cantidad de cada producto debe ser mayor o igual a 1.');
     if (!supplierId) return setError('Selecciona un proveedor.');
-    if (items.some(item => !item.productId || !item.warehouseId || Number(item.quantity) <= 0)) return setError('Completa producto, almacén y cantidad mayor a cero en cada partida.');
+    if (items.some(item => !item.productId || !item.warehouseId)) return setError('Selecciona producto y almacén para cada partida.');
     setSaving(true);
     try {
       await onCreate({ supplierId, items: items.map(item => ({ productId: item.productId, warehouseId: item.warehouseId, quantity: Number(item.quantity), ...(item.unitCost === '' ? {} : { unitCost: Number(item.unitCost) }), taxRate: Number(item.taxRate || 0) })) });
@@ -42,9 +45,9 @@ function PurchaseForm({ suppliers, products, warehouses, loading, loadError, onC
         {items.map((item, index) => <fieldset className="sales-line" key={index}><legend>Partida {index + 1}</legend>
           <label>Producto<select value={item.productId} onChange={event => { const product = products.find(value => value.id === event.target.value); setItems(current => current.map((line, i) => i === index ? { ...line, productId: event.target.value, unitCost: product ? String(product.purchasePrice) : '' } : line)); }} required><option value="">Selecciona un producto</option>{products.map(product => <option key={product.id} value={product.id}>{product.code} · {product.name}</option>)}</select></label>
           <label>Almacén<select value={item.warehouseId} onChange={event => updateItem(index, 'warehouseId', event.target.value)} required><option value="">Selecciona un almacén</option>{warehouses.map(warehouse => <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>)}</select></label>
-          <div className="sales-line-numbers"><label>Cantidad<input aria-label={`Cantidad partida ${index + 1}`} type="number" min="0.000001" step="any" value={item.quantity} onChange={event => updateItem(index, 'quantity', event.target.value)} required /></label>
-            <label>Costo unitario<input aria-label={`Costo partida ${index + 1}`} type="number" min="0" step="0.01" value={item.unitCost} onChange={event => updateItem(index, 'unitCost', event.target.value)} required /></label>
-            <label>Impuesto %<input aria-label={`Impuesto partida ${index + 1}`} type="number" min="0" max="100" step="0.01" value={item.taxRate} onChange={event => updateItem(index, 'taxRate', event.target.value)} /></label></div>
+          <div className="sales-line-numbers"><label>Cantidad<NumericInput aria-label={`Cantidad partida ${index + 1}`} min="1" step="1" value={item.quantity} onChange={event => updateItem(index, 'quantity', event.target.value)} required /></label>
+            <label>Costo unitario<NumericInput aria-label={`Costo partida ${index + 1}`} min="0" step="0.01" value={item.unitCost} onChange={event => updateItem(index, 'unitCost', event.target.value)} required /></label>
+            <label>Impuesto %<NumericInput aria-label={`Impuesto partida ${index + 1}`} min="0" max="100" step="0.01" value={item.taxRate} onChange={event => updateItem(index, 'taxRate', event.target.value)} /></label></div>
           {items.length > 1 ? <button className="sales-remove-line" type="button" onClick={() => setItems(current => current.filter((_, i) => i !== index))}>Quitar partida</button> : null}
         </fieldset>)}
         <div className="sales-form-totals"><span>Subtotal <strong>{money(totals.subtotal)}</strong></span><span>Impuestos <strong>{money(totals.taxes)}</strong></span><span>Total <strong>{money(totals.subtotal + totals.taxes)}</strong></span></div>

@@ -44,6 +44,12 @@ describe('PurchasesPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: '+ Nueva compra' }));
     const dialog = await screen.findByRole('dialog');
     await within(dialog).findByRole('option', { name: /Producto Uno/ });
+    expect(within(dialog).getByLabelText('Cantidad partida 1')).toHaveAttribute('min', '1');
+    expect(within(dialog).getByLabelText('Cantidad partida 1')).toHaveAttribute('step', '1');
+    expect(within(dialog).getByLabelText('Costo partida 1')).toHaveAttribute('step', '0.01');
+    expect(within(dialog).getByLabelText('Impuesto partida 1')).toHaveAttribute('min', '0');
+    expect(within(dialog).getByLabelText('Impuesto partida 1')).toHaveAttribute('max', '100');
+    expect(within(dialog).getByLabelText('Impuesto partida 1')).toHaveAttribute('step', '0.01');
     fireEvent.change(within(dialog).getByLabelText('Proveedor'), { target: { value: supplier.id } });
     fireEvent.change(within(dialog).getByLabelText('Producto'), { target: { value: product.id } });
     fireEvent.change(within(dialog).getByLabelText('Almacén'), { target: { value: warehouse.id } });
@@ -54,6 +60,17 @@ describe('PurchasesPage', () => {
     const post = apiRequest.mock.calls.find(([path, options]) => path === '/api/purchases' && options?.method === 'POST');
     expect(JSON.parse(post[1].body)).toEqual({ supplierId: supplier.id, items: [{ productId: product.id, warehouseId: warehouse.id, quantity: 2, unitCost: 12, taxRate: 16 }] });
     expect(await screen.findByRole('status')).toHaveTextContent('Borrador COM-2026-000002 creado.');
+  });
+
+  it('NUM-WEB-007: rejects purchase quantity zero without calling the API', async () => {
+    setupApi();
+    render(<PurchasesPage session={session} />);
+    fireEvent.click(await screen.findByRole('button', { name: '+ Nueva compra' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('Cantidad partida 1'), { target: { value: '0' } });
+    fireEvent.submit(dialog.querySelector('form'));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('La cantidad de cada producto debe ser mayor o igual a 1.');
+    expect(apiRequest).not.toHaveBeenCalledWith('/api/purchases', expect.objectContaining({ method: 'POST' }));
   });
 
   it('confirma antes de recibir y muestra errores devueltos por la API', async () => {
