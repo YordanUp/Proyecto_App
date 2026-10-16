@@ -55,10 +55,43 @@ beforeEach(() => { apiRequest.mockReset(); });
 
 describe('catálogos web sincronizados con API', () => {
   it('CAT-WEB-001: crea producto con categoría y precios reales', async () => {
-    await createRecord('products', { singular: 'producto', fields: { 'Código / SKU': 'SKU-1', Nombre: 'Producto nuevo', Categoría: 'General', 'Precio de compra': '10', 'Precio de venta': '15' } });
+    await createRecord('products', { singular: 'producto', fields: { 'Código / SKU': 'SKU-1', Nombre: 'Producto nuevo', Categoría: 'General', 'Precio de compra': '0.50', 'Precio de venta': '0.99', 'Stock mínimo': '0' } });
     const body = JSON.parse(apiRequest.mock.calls.find(([, options]) => options?.method === 'POST')[1].body);
-    expect(body).toMatchObject({ code: 'SKU-1', name: 'Producto nuevo', categoryId: 'category-1', purchasePrice: 10, salePrice: 15 });
-    expect(body).not.toHaveProperty('minStock');
+    expect(body).toMatchObject({ code: 'SKU-1', name: 'Producto nuevo', categoryId: 'category-1', purchasePrice: 0.5, salePrice: 0.99, minStock: 0 });
+  });
+
+  it('NUM-CAT price fields are decimal text inputs and wheel does not change them', async () => {
+    setupApi('products'); renderEntity('products'); fireEvent.click(await screen.findByRole('button', { name: /nuevo producto/i }));
+    const dialog = screen.getByRole('dialog');
+    const price = within(dialog).getByLabelText('Precio de compra');
+    expect(price).toHaveAttribute('type', 'text'); expect(price).toHaveAttribute('inputMode', 'decimal');
+    fireEvent.change(price, { target: { value: '0.50' } }); fireEvent.wheel(price, { deltaY: -100 });
+    expect(price).toHaveValue('0.50');
+  });
+
+  it.each([
+    ['Precio de compra', '0', 'El precio de compra debe ser mayor a 0.'],
+    ['Precio de venta', '-1', 'El precio de venta debe ser mayor a 0.'],
+    ['Stock mínimo', '0.5', 'El stock mínimo debe ser un número entero mayor o igual a 0.']
+  ])('NUM-CAT rejects %s=%s with a React validation message', async (field, value, message) => {
+    setupApi('products'); renderEntity('products'); fireEvent.click(await screen.findByRole('button', { name: /nuevo producto/i }));
+    const dialog = screen.getByRole('dialog');
+    await within(dialog).findByRole('option', { name: 'General' });
+    fireEvent.change(within(dialog).getByLabelText('Código / SKU'), { target: { value: 'SKU-VALIDATION' } });
+    fireEvent.change(within(dialog).getByLabelText('Nombre'), { target: { value: 'Producto validación' } });
+    fireEvent.change(within(dialog).getByLabelText('Categoría'), { target: { value: 'category-1' } });
+    fireEvent.change(within(dialog).getByLabelText('Precio de compra'), { target: { value: '0.50' } });
+    fireEvent.change(within(dialog).getByLabelText('Precio de venta'), { target: { value: '0.99' } });
+    fireEvent.change(within(dialog).getByLabelText(field), { target: { value } });
+    fireEvent.submit(within(dialog).getByRole('button', { name: 'Crear' }).closest('form'));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(message);
+    expect(apiRequest).not.toHaveBeenCalledWith('/api/products', expect.objectContaining({ method: 'POST' }));
+  });
+
+  it.each(['0', '1'])('NUM-CAT accepts integer minimum stock %s', async minStock => {
+    await createRecord('products', { singular: 'producto', fields: { 'Código / SKU': `SKU-MIN-${minStock}`, Nombre: 'Producto mínimo', Categoría: 'General', 'Precio de compra': '0.50', 'Precio de venta': '0.99', 'Stock mínimo': minStock } });
+    const body = JSON.parse(apiRequest.mock.calls.find(([, options]) => options?.method === 'POST')[1].body);
+    expect(body.minStock).toBe(Number(minStock));
   });
 
   it('CAT-WEB-002: edita producto sin enviar ni modificar stock', async () => {

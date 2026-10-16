@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../../services/api';
+import NumericInput from '../../components/NumericInput';
 import { catalogDefinitions } from './catalogDefinitions';
 
 function hasPermission(user, permission) {
@@ -31,18 +32,17 @@ function CatalogForm({ definition, resource, categories, categoriesLoading, cate
         setValidationError(`${field.label} es obligatorio.`);
         return;
       }
-      if (field.type === 'number' && data[field.name] !== '' && (!Number.isFinite(Number(data[field.name])) || Number(data[field.name]) < (field.min ?? 0))) {
-        setValidationError(`${field.label} debe ser un número válido.`);
-        return;
-      }
+      if (field.name === 'purchasePrice' && (!Number.isFinite(Number(data[field.name])) || Number(data[field.name]) <= 0)) { setValidationError('El precio de compra debe ser mayor a 0.'); return; }
+      if (field.name === 'salePrice' && (!Number.isFinite(Number(data[field.name])) || Number(data[field.name]) <= 0)) { setValidationError('El precio de venta debe ser mayor a 0.'); return; }
+      if (field.name === 'minStock' && data[field.name] !== '' && (!Number.isInteger(Number(data[field.name])) || Number(data[field.name]) < 0)) { setValidationError('El stock mínimo debe ser un número entero mayor o igual a 0.'); return; }
     }
     if (definition === catalogDefinitions.products && Number(data.salePrice) < Number(data.purchasePrice)) {
       setValidationError('El precio de venta no puede ser menor al precio de compra.');
       return;
     }
     for (const field of definition.fields) {
-      if (field.type === 'number' && data[field.name] === '' && !field.required) delete data[field.name];
-      else if (field.type === 'number' && data[field.name] !== '') data[field.name] = Number(data[field.name]);
+      if (field.type === 'numeric' && data[field.name] === '' && !field.required) delete data[field.name];
+      else if (field.type === 'numeric' && data[field.name] !== '') data[field.name] = Number(data[field.name]);
     }
     onSubmit(data);
   }
@@ -50,6 +50,7 @@ function CatalogForm({ definition, resource, categories, categoriesLoading, cate
   function renderField(field) {
     const common = { id: `catalog-${field.name}`, name: field.name, value: form[field.name] ?? '', onChange: updateField, required: field.required, maxLength: field.maxLength };
     if (field.type === 'textarea') return <textarea {...common} rows="3" />;
+    if (field.type === 'numeric') return <NumericInput {...common} numericMode={field.numericMode} />;
     if (field.type === 'status') return <select {...common}><option value="active">Activo</option><option value="inactive">Inactivo</option></select>;
     if (field.type === 'category') return (
       <>
@@ -60,7 +61,7 @@ function CatalogForm({ definition, resource, categories, categoriesLoading, cate
         {categoriesError ? <span className="catalog-field-help" role="alert">{categoriesError}</span> : null}
       </>
     );
-    return <input {...common} type={field.type || 'text'} min={field.min} step={field.step} autoCapitalize={field.uppercase ? 'characters' : undefined} />;
+    return <input {...common} type={field.type || 'text'} autoCapitalize={field.uppercase ? 'characters' : undefined} />;
   }
 
   return (

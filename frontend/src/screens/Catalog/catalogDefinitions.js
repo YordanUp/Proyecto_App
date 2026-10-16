@@ -7,10 +7,10 @@ export const catalogDefinitions = {
       { name: 'code', label: 'Código / SKU', required: true, maxLength: 64, uppercase: true },
       { name: 'name', label: 'Nombre', required: true, maxLength: 160 },
       { name: 'categoryId', label: 'Categoría', required: true, type: 'category' },
-      { name: 'purchasePrice', label: 'Precio de compra', required: true, type: 'number', min: 0, step: '0.01' },
-      { name: 'salePrice', label: 'Precio de venta', required: true, type: 'number', min: 0, step: '0.01' },
+      { name: 'purchasePrice', label: 'Precio de compra', required: true, type: 'numeric', numericMode: 'decimal' },
+      { name: 'salePrice', label: 'Precio de venta', required: true, type: 'numeric', numericMode: 'decimal' },
       { name: 'description', label: 'Descripción', type: 'textarea', maxLength: 1000 },
-      { name: 'minStock', label: 'Stock mínimo', type: 'number', min: 0, step: '1' },
+      { name: 'minStock', label: 'Stock mínimo', type: 'numeric', numericMode: 'integer' },
       { name: 'status', label: 'Estado', type: 'status' }
     ],
     columns: [

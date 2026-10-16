@@ -52,7 +52,7 @@ describe('InventoryPage', () => {
       if (typeof path !== 'string') return Promise.resolve({ data: [] });
       if (path === '/api/inventory/entry' && options.method === 'POST') { entered = true; return Promise.resolve({ message: 'Entrada registrada', data: {} }); }
       if (path.startsWith('/api/inventory/movements')) return Promise.resolve({ data: [movement], pagination: { page: 1, limit: 25, total: 1, pages: 1 } });
-      if (path.startsWith('/api/inventory?')) return Promise.resolve({ data: [entered ? { ...stock, quantity: 9 } : stock], pagination: { page: 1, limit: 25, total: 1, pages: 1 } });
+      if (path.startsWith('/api/inventory?')) return Promise.resolve({ data: [entered ? { ...stock, quantity: 8 } : stock], pagination: { page: 1, limit: 25, total: 1, pages: 1 } });
       if (path === '/api/inventory/warehouses') return Promise.resolve({ data: [warehouse] });
       if (path.startsWith('/api/products?')) return Promise.resolve({ data: [product] });
       return Promise.reject(new Error(`Unexpected request: ${path}`));
@@ -62,12 +62,61 @@ describe('InventoryPage', () => {
     const dialog = screen.getByRole('dialog');
     fireEvent.change(within(dialog).getByLabelText('Producto'), { target: { value: product.id } });
     fireEvent.change(within(dialog).getByLabelText('Almacén'), { target: { value: warehouse.id } });
-    fireEvent.change(within(dialog).getByLabelText('Cantidad'), { target: { value: '2' } });
+    const quantityInput = within(dialog).getByLabelText('Cantidad');
+    expect(quantityInput).toHaveAttribute('type', 'text');
+    expect(quantityInput).toHaveAttribute('inputMode', 'numeric');
+    fireEvent.change(quantityInput, { target: { value: '1' } });
     fireEvent.change(within(dialog).getByLabelText('Motivo'), { target: { value: 'Recepción validada' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Confirmar operación' }));
     expect(await screen.findByRole('status')).toHaveTextContent('Entrada registrada');
-    await waitFor(() => expect(screen.getByText('9')).toBeInTheDocument());
-    expect(apiRequest).toHaveBeenCalledWith('/api/inventory/entry', expect.objectContaining({ method: 'POST', body: JSON.stringify({ productId: product.id, warehouseId: warehouse.id, quantity: 2, reason: 'Recepción validada', referenceType: 'manual', referenceId: '' }) }));
+    await waitFor(() => expect(screen.getByText('8')).toBeInTheDocument());
+    expect(apiRequest).toHaveBeenCalledWith('/api/inventory/entry', expect.objectContaining({ method: 'POST', body: JSON.stringify({ productId: product.id, warehouseId: warehouse.id, quantity: 1, reason: 'Recepción validada', referenceType: 'manual', referenceId: '' }) }));
+  });
+
+  it.each(['0', '-1', '0.5', '0.000001', 'abc'])('NUM-INV entry rejects quantity %s before calling the API', async quantity => {
+    setupApi(); render(<InventoryPage session={session} />);
+    fireEvent.click(await screen.findByRole('button', { name: '+ Entrada' }));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('Producto'), { target: { value: product.id } });
+    fireEvent.change(within(dialog).getByLabelText('Almacén'), { target: { value: warehouse.id } });
+    fireEvent.change(within(dialog).getByLabelText('Cantidad'), { target: { value: quantity } });
+    fireEvent.change(within(dialog).getByLabelText('Motivo'), { target: { value: 'Prueba de validación' } });
+    fireEvent.submit(within(dialog).getByRole('button', { name: 'Confirmar operación' }).closest('form'));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('La cantidad debe ser mayor o igual a 1.');
+    expect(apiRequest).not.toHaveBeenCalledWith('/api/inventory/entry', expect.anything());
+  });
+
+  it('NUM-INV-006 permite ajustar existencia a cero', async () => {
+    setupApi();
+    apiRequest.mockImplementation((path, options = {}) => {
+      if (typeof path !== 'string') return Promise.resolve({ data: [] });
+      if (path === '/api/inventory/adjust' && options.method === 'POST') return Promise.resolve({ message: 'Ajuste registrado', data: {} });
+      if (path.startsWith('/api/inventory/movements')) return Promise.resolve({ data: [movement], pagination: { page: 1, limit: 25, total: 1, pages: 1 } });
+      if (path.startsWith('/api/inventory?')) return Promise.resolve({ data: [stock], pagination: { page: 1, limit: 25, total: 1, pages: 1 } });
+      if (path === '/api/inventory/warehouses') return Promise.resolve({ data: [warehouse] });
+      if (path.startsWith('/api/products?')) return Promise.resolve({ data: [product] });
+      return Promise.reject(new Error(`Unexpected request: ${path}`));
+    });
+    render(<InventoryPage session={session} />); fireEvent.click(await screen.findByRole('button', { name: 'Ajustar' }));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('Producto'), { target: { value: product.id } });
+    fireEvent.change(within(dialog).getByLabelText('Almacén'), { target: { value: warehouse.id } });
+    fireEvent.change(within(dialog).getByLabelText('Existencia objetivo'), { target: { value: '0' } });
+    fireEvent.change(within(dialog).getByLabelText('Motivo'), { target: { value: 'Conteo sin existencia' } });
+    fireEvent.submit(within(dialog).getByRole('button', { name: 'Confirmar operación' }).closest('form'));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith('/api/inventory/adjust', expect.objectContaining({ method: 'POST', body: expect.stringContaining('"newQuantity":0') })));
+  });
+
+  it.each(['-1', '0.5'])('NUM-INV adjustment rejects target %s', async quantity => {
+    setupApi(); render(<InventoryPage session={session} />); fireEvent.click(await screen.findByRole('button', { name: 'Ajustar' }));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('Producto'), { target: { value: product.id } });
+    fireEvent.change(within(dialog).getByLabelText('Almacén'), { target: { value: warehouse.id } });
+    fireEvent.change(within(dialog).getByLabelText('Existencia objetivo'), { target: { value: quantity } });
+    fireEvent.change(within(dialog).getByLabelText('Motivo'), { target: { value: 'Conteo inválido' } });
+    fireEvent.submit(within(dialog).getByRole('button', { name: 'Confirmar operación' }).closest('form'));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('La existencia objetivo debe ser un número entero mayor o igual a 0.');
+    expect(apiRequest).not.toHaveBeenCalledWith('/api/inventory/adjust', expect.anything());
   });
 
   it('envía transferencias al endpoint transaccional existente y muestra errores de negocio', async () => {
@@ -95,5 +144,20 @@ describe('InventoryPage', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Confirmar operación' }));
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('La transferencia supera las existencias disponibles');
     expect(apiRequest).toHaveBeenCalledWith('/api/inventory/transfer', expect.objectContaining({ method: 'POST', body: JSON.stringify({ productId: product.id, fromWarehouseId: warehouse.id, toWarehouseId: destination.id, quantity: 2, reason: 'Reubicación' }) }));
+  });
+
+  it('NUM-INV-005 rechaza una transferencia fraccionaria antes del API', async () => {
+    const destination = { id: 'warehouse-2', name: 'Almacén Norte', status: 'active' };
+    setupApi([warehouse, destination]); render(<InventoryPage session={session} />);
+    await screen.findAllByText('Producto uno'); fireEvent.click(screen.getByRole('button', { name: 'Transferir' }));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('Producto'), { target: { value: product.id } });
+    fireEvent.change(within(dialog).getByLabelText('Almacén de origen'), { target: { value: warehouse.id } });
+    fireEvent.change(within(dialog).getByLabelText('Almacén destino'), { target: { value: destination.id } });
+    fireEvent.change(within(dialog).getByLabelText('Cantidad'), { target: { value: '0.5' } });
+    fireEvent.change(within(dialog).getByLabelText('Motivo'), { target: { value: 'Reubicación inválida' } });
+    fireEvent.submit(within(dialog).getByRole('button', { name: 'Confirmar operación' }).closest('form'));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('La cantidad debe ser mayor o igual a 1.');
+    expect(apiRequest).not.toHaveBeenCalledWith('/api/inventory/transfer', expect.anything());
   });
 });

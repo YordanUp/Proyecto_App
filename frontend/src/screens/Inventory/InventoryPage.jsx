@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../../services/api';
+import NumericInput from '../../components/NumericInput';
 
 const PAGE_SIZE = 25;
 const MOVEMENT_LABELS = {
@@ -28,8 +29,11 @@ function InventoryOperationModal({ mode, products, productSearch, onProductSearc
     const source = transfer ? form.fromWarehouseId : form.warehouseId;
     if (!source) return setValidationError('Selecciona un almacén.');
     if (transfer && (!form.toWarehouseId || form.toWarehouseId === source)) return setValidationError('Selecciona un almacén destino distinto al origen.');
-    const quantity = Number(adjustment ? form.newQuantity : form.quantity);
-    if (!Number.isFinite(quantity) || quantity < (adjustment ? 0 : 0.000001)) return setValidationError(adjustment ? 'La existencia objetivo debe ser igual o mayor a cero.' : 'La cantidad debe ser mayor a cero.');
+    const rawQuantity = adjustment ? form.newQuantity : form.quantity;
+    const quantity = Number(rawQuantity);
+    if (rawQuantity === '' || !Number.isInteger(quantity) || quantity < (adjustment ? 0 : 1)) {
+      return setValidationError(adjustment ? 'La existencia objetivo debe ser un número entero mayor o igual a 0.' : 'La cantidad debe ser mayor o igual a 1.');
+    }
     if (!form.reason.trim()) return setValidationError('El motivo es obligatorio.');
     await onSubmit({ ...form, quantity, newQuantity: quantity });
   }
@@ -73,7 +77,7 @@ function InventoryOperationModal({ mode, products, productSearch, onProductSearc
             </select>
           </label>}
           <label>{adjustment ? 'Existencia objetivo' : 'Cantidad'}
-            <input name={adjustment ? 'newQuantity' : 'quantity'} type="number" min={adjustment ? '0' : '0.000001'} step="any" value={adjustment ? form.newQuantity : form.quantity} onChange={update} required />
+            <NumericInput numericMode="integer" name={adjustment ? 'newQuantity' : 'quantity'} aria-label={adjustment ? 'Existencia objetivo' : 'Cantidad'} value={adjustment ? form.newQuantity : form.quantity} onChange={update} required />
           </label>
           <label>Motivo
             <input name="reason" value={form.reason} onChange={update} maxLength={500} placeholder="Describe por qué se registra la operación" required />
