@@ -37,6 +37,14 @@ test('InventoryMovement valida tipos, usuario, motivo y cantidades', async () =>
 test('inventory API service rejects invalid identifiers and quantities before database access', async () => {
   await assert.rejects(inventoryService.addEntry({ productId: 'bad', warehouseId: 'bad', quantity: 1, reason: 'Test' }, new mongoose.Types.ObjectId()), error => error.statusCode === 400 && error.errorCode === 'VALIDATION_ERROR');
   const id = new mongoose.Types.ObjectId().toString();
-  await assert.rejects(inventoryService.addExit({ productId: id, warehouseId: id, quantity: 0, reason: 'Test' }, id), error => error.statusCode === 400 && error.errorCode === 'VALIDATION_ERROR');
+  for (const quantity of [0, -1, 0.5, 0.000001]) {
+    await assert.rejects(inventoryService.addEntry({ productId: id, warehouseId: id, quantity, reason: 'Test' }, id), error => error.statusCode === 400 && error.errorCode === 'VALIDATION_ERROR');
+    await assert.rejects(inventoryService.addExit({ productId: id, warehouseId: id, quantity, reason: 'Test' }, id), error => error.statusCode === 400 && error.errorCode === 'VALIDATION_ERROR');
+  }
   await assert.rejects(inventoryService.adjustStock({ productId: id, warehouseId: id, newQuantity: -1, reason: 'Test' }, id), error => error.statusCode === 400 && error.errorCode === 'VALIDATION_ERROR');
+  await assert.rejects(inventoryService.adjustStock({ productId: id, warehouseId: id, newQuantity: 0.5, reason: 'Test' }, id), error => error.statusCode === 400 && error.errorCode === 'VALIDATION_ERROR');
+  const toWarehouseId = new mongoose.Types.ObjectId().toString();
+  for (const quantity of [0, -1, 0.5, 0.000001]) {
+    await assert.rejects(inventoryService.transferStock({ productId: id, fromWarehouseId: id, toWarehouseId, quantity, reason: 'Test' }, id), error => error.statusCode === 400 && error.errorCode === 'VALIDATION_ERROR');
+  }
 });

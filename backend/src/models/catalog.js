@@ -15,9 +15,9 @@ const productSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true, maxlength: 160 },
   description: { type: String, trim: true, maxlength: 1000, default: '' },
   categoryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true, index: true },
-  purchasePrice: { type: Number, required: true, min: 0 },
-  salePrice: { type: Number, required: true, min: 0 },
-  minStock: { type: Number, default: 0, min: 0 },
+  purchasePrice: { type: Number, required: true, min: 0.01 },
+  salePrice: { type: Number, required: true, min: 0.01 },
+  minStock: { type: Number, default: 0, min: 0, validate: { validator: Number.isInteger, message: 'El stock mínimo debe ser un número entero mayor o igual a 0' } },
   status
 }, timestamps);
 productSchema.index({ code: 1 }, { unique: true });

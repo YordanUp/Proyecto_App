@@ -74,7 +74,7 @@ async function create(entity, data, actorId) {
     if (!data.code || !data.categoryId || !mongoose.isValidObjectId(data.categoryId) || !Number.isFinite(Number(data.salePrice)) || !Number.isFinite(Number(data.purchasePrice))) {
       const e = new Error('Código, categoría y precios válidos son requeridos'); e.statusCode = 400; e.errorCode = 'VALIDATION_ERROR'; throw e;
     }
-    if (Number(data.purchasePrice) < 0 || Number(data.salePrice) < Number(data.purchasePrice)) { const e = new Error('Los precios no son válidos'); e.statusCode = 400; e.errorCode = 'VALIDATION_ERROR'; throw e; }
+    if (Number(data.purchasePrice) <= 0 || Number(data.salePrice) <= 0 || Number(data.salePrice) < Number(data.purchasePrice)) { const e = new Error('Los precios deben ser mayores a cero y el precio de venta no puede ser menor al precio de compra'); e.statusCode = 400; e.errorCode = 'VALIDATION_ERROR'; throw e; }
     const category = await Category.findById(data.categoryId);
     if (!category || category.status !== 'active') { const e = new Error('Categoría no encontrada o inactiva'); e.statusCode = 400; e.errorCode = 'INVALID_CATEGORY'; throw e; }
   }

@@ -29,6 +29,19 @@ test('Product rechaza precio de venta menor al de compra', async () => {
   await assert.rejects(product.validate(), error => Boolean(error.errors.salePrice));
 });
 
+test('Product admite precios positivos fraccionarios y stock mínimo entero desde cero', async () => {
+  const product = new Product({ code: 'P-DEC', name: 'Producto decimal', categoryId: new mongoose.Types.ObjectId(), purchasePrice: 0.5, salePrice: 0.99, minStock: 0 });
+  await product.validate();
+  product.minStock = 0.5;
+  await assert.rejects(product.validate(), error => Boolean(error.errors.minStock));
+  product.minStock = 1;
+  product.purchasePrice = 0;
+  await assert.rejects(product.validate(), error => Boolean(error.errors.purchasePrice));
+  product.purchasePrice = 0.5;
+  product.salePrice = -1;
+  await assert.rejects(product.validate(), error => Boolean(error.errors.salePrice));
+});
+
 test('Las contraseñas se guardan como hash y se pueden verificar', async () => {
   const password = 'una-clave-segura-larga';
   const hash = await hashPassword(password);

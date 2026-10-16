@@ -26,9 +26,15 @@ function positiveQuantity(value) {
   return quantity;
 }
 
+function positiveIntegerQuantity(value) {
+  const quantity = Number(value);
+  if (!Number.isInteger(quantity) || quantity < 1) throw inventoryError(400, 'VALIDATION_ERROR', 'La cantidad debe ser un número entero mayor o igual a 1');
+  return quantity;
+}
+
 function nonNegativeQuantity(value) {
   const quantity = Number(value);
-  if (!Number.isFinite(quantity) || quantity < 0) throw inventoryError(400, 'VALIDATION_ERROR', 'La existencia objetivo debe ser un número igual o mayor a cero');
+  if (!Number.isInteger(quantity) || quantity < 0) throw inventoryError(400, 'VALIDATION_ERROR', 'La existencia objetivo debe ser un número entero mayor o igual a cero');
   return quantity;
 }
 
@@ -157,7 +163,7 @@ async function addEntry(data, actorId) {
   const productId = idValue(data.productId, 'productId');
   const warehouseId = idValue(data.warehouseId, 'warehouseId');
   const userId = idValue(actorId, 'usuario');
-  const quantity = positiveQuantity(data.quantity);
+  const quantity = positiveIntegerQuantity(data.quantity);
   const reason = reasonValue(data.reason);
   const { referenceType, referenceId } = reference(data);
   return withInventoryTransaction(async session => {
@@ -179,7 +185,7 @@ async function addExit(data, actorId) {
   const productId = idValue(data.productId, 'productId');
   const warehouseId = idValue(data.warehouseId, 'warehouseId');
   const userId = idValue(actorId, 'usuario');
-  const quantity = positiveQuantity(data.quantity);
+  const quantity = positiveIntegerQuantity(data.quantity);
   const reason = reasonValue(data.reason);
   const { referenceType, referenceId } = reference(data);
   return withInventoryTransaction(async session => {
@@ -227,7 +233,7 @@ async function transferStock(data, actorId) {
   const toWarehouseId = idValue(data.toWarehouseId, 'toWarehouseId');
   const userId = idValue(actorId, 'usuario');
   if (fromWarehouseId.equals(toWarehouseId)) throw inventoryError(400, 'INVALID_TRANSFER', 'El almacén de origen y destino deben ser distintos');
-  const quantity = positiveQuantity(data.quantity);
+  const quantity = positiveIntegerQuantity(data.quantity);
   const reason = reasonValue(data.reason);
   const referenceInfo = reference({ ...data, referenceType: data.referenceType || 'manual' });
   const transferId = new mongoose.Types.ObjectId().toString();
@@ -273,7 +279,7 @@ async function consumeForSale({ productId: rawProductId, warehouseId: rawWarehou
   const productId = idValue(rawProductId, 'productId');
   const warehouseId = idValue(rawWarehouseId, 'warehouseId');
   const userId = idValue(rawUserId, 'usuario');
-  const quantity = positiveQuantity(rawQuantity);
+  const quantity = positiveIntegerQuantity(rawQuantity);
   const product = await Product.findOne({ _id: productId, status: 'active' }).select('_id').session(session);
   const warehouse = await Warehouse.findOne({ _id: warehouseId, status: 'active' }).select('_id').session(session);
   if (!product) throw inventoryError(404, 'PRODUCT_NOT_FOUND', 'El producto no existe o está inactivo');
@@ -297,7 +303,7 @@ async function restoreForSale({ productId: rawProductId, warehouseId: rawWarehou
   const productId = idValue(rawProductId, 'productId');
   const warehouseId = idValue(rawWarehouseId, 'warehouseId');
   const userId = idValue(rawUserId, 'usuario');
-  const quantity = positiveQuantity(rawQuantity);
+  const quantity = positiveIntegerQuantity(rawQuantity);
   let before = await InventoryStock.findOne({ productId, warehouseId }).session(session);
   if (!before) {
     const product = await Product.findById(productId).select('minStock').session(session);
@@ -347,7 +353,7 @@ async function receiveForPurchase({ productId: rawProductId, warehouseId: rawWar
   const productId = idValue(rawProductId, 'productId');
   const warehouseId = idValue(rawWarehouseId, 'warehouseId');
   const userId = idValue(rawUserId, 'usuario');
-  const quantity = positiveQuantity(rawQuantity);
+  const quantity = positiveIntegerQuantity(rawQuantity);
   const { product, warehouse } = await activeReferences(productId, warehouseId, session);
   await ensureStock(product, warehouse, session);
   const before = await InventoryStock.findOne({ productId, warehouseId }).session(session);
