@@ -99,7 +99,7 @@ export default function PurchasesPage({ session }) {
     if (!window.confirm(prompt)) return;
     setError(''); setNotice('');
     try { const result = await apiRequest(`/api/purchases/${purchase.id}/${action}`, { method: 'POST', body: JSON.stringify({}) }); setNotice(result.message || `Compra ${STATUS_LABELS[result.data?.status] || 'actualizada'}.`); await loadPurchases(); if (activePurchase?.id === purchase.id) setActivePurchase((await apiRequest(`/api/purchases/${purchase.id}`)).data); }
-    catch (operationError) { setError(operationError.message || 'No se pudo actualizar la compra.'); }
+    catch (operationError) { await loadPurchases(); if (operationError.code === 'PURCHASE_PAYMENT_PENDING' && activePurchase?.id === purchase.id) await showDetails(purchase); setError(operationError.message || 'No se pudo actualizar la compra.'); }
   }
   async function showDetails(purchase) { try { setActivePurchase((await apiRequest(`/api/purchases/${purchase.id}`)).data); } catch (detailError) { setError(detailError.message || 'No se pudo consultar el detalle.'); } }
 
@@ -110,7 +110,7 @@ export default function PurchasesPage({ session }) {
     {loading ? <div className="card" role="status">Cargando compras…</div> : <section className="card sales-table-card"><table className="data-table"><thead><tr><th>Folio</th><th>Proveedor</th><th>Fecha</th><th>Total</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
       {!purchases.length ? <tr><td colSpan="6" className="empty-state">No hay compras para mostrar.</td></tr> : purchases.map(purchase => <tr key={purchase.id}><td><strong>{purchase.folio}</strong></td><td>{purchase.supplier?.name || purchase.supplierId}</td><td>{new Date(purchase.createdAt).toLocaleDateString()}</td><td>{money(purchase.total)}</td><td><span className={`sales-status ${purchase.status}`}>{STATUS_LABELS[purchase.status] || purchase.status}</span></td><td className="sales-row-actions"><button type="button" className="secondary" onClick={() => showDetails(purchase)}>Detalle</button>
         {purchase.status === 'draft' && can(user, 'purchases.approve') ? <button type="button" className="users-primary-button" onClick={() => transition(purchase, 'order')}>Ordenar</button> : null}
-        {purchase.status === 'ordered' && can(user, 'purchases.receive') ? <button type="button" className="users-primary-button" onClick={() => transition(purchase, 'receive')}>Recibir</button> : null}
+        {purchase.status === 'ordered' && can(user, 'purchases.receive') ? purchase.paymentBalance > 0 || (purchase.paymentStatus && purchase.paymentStatus !== 'paid') ? <span className="finance-status pending">Pago pendiente</span> : <button type="button" className="users-primary-button" onClick={() => transition(purchase, 'receive')}>Recibir</button> : null}
         {['draft', 'ordered'].includes(purchase.status) && can(user, 'purchases.cancel') ? <button type="button" className="sales-danger-button" onClick={() => transition(purchase, 'cancel')}>Cancelar</button> : null}
       </td></tr>)}
     </tbody></table>{pagination.pages > 1 ? <nav className="inventory-pagination" aria-label="Paginación de compras"><span>{pagination.total} compras · Página {pagination.page} de {pagination.pages}</span><div><button type="button" className="secondary" disabled={page <= 1} onClick={() => setPage(value => value - 1)}>Anterior</button><button type="button" className="secondary" disabled={page >= pagination.pages} onClick={() => setPage(value => value + 1)}>Siguiente</button></div></nav> : null}</section>}

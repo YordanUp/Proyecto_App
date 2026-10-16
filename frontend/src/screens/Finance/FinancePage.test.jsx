@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import FinancePage from './FinancePage';
 import { apiRequest } from '../../services/api';
 
-vi.mock('../../services/api', () => ({ apiRequest: vi.fn() }));
+vi.mock('../../services/api', () => ({ API_URL: 'http://localhost:4000', apiRequest: vi.fn() }));
 
 const receivable = { id: 'ar-1', folio: 'CXC-2026-000001', customer: { id: 'customer-1', name: 'Cliente Uno' }, sale: { id: 'sale-1', folio: 'VEN-2026-000001' }, originalAmount: 1000, paidAmount: 0, balance: 1000, status: 'pending' };
 const payable = { id: 'ap-1', folio: 'CXP-2026-000001', supplier: { id: 'supplier-1', name: 'Proveedor Uno' }, purchase: { id: 'purchase-1', folio: 'COM-2026-000001' }, originalAmount: 500, paidAmount: 200, balance: 300, status: 'partial' };
@@ -79,6 +79,29 @@ describe('FinancePage', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Registrar pago' }));
     await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(`/api/finance/payables/${payable.id}/payments`, expect.objectContaining({ method: 'POST' })));
     expect(await screen.findByRole('status')).toHaveTextContent('Saldo restante $0.00');
+  });
+
+  it('genera y descarga factura con permiso finance.make_payment', async () => {
+    setupApi({ payableAccount: { ...payable, balance: 0, status: 'paid' } });
+    localStorage.setItem('erp_token', 'token');
+    const originalFetch = globalThis.fetch; const originalCreateObjectURL = URL.createObjectURL; const originalRevokeObjectURL = URL.revokeObjectURL;
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, headers: { get: () => 'attachment; filename="Factura_FAC-2026-000001.docx"' }, blob: async () => new Blob(['docx']) });
+    URL.createObjectURL = vi.fn(() => 'blob:invoice'); URL.revokeObjectURL = vi.fn();
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    render(<FinancePage session={session} />); fireEvent.click(await screen.findByRole('button', { name: 'Cuentas por pagar' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Generar factura' }));
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/api\/finance\/payables\/ap-1\/invoice$/), expect.objectContaining({ headers: { Authorization: 'Bearer token' } })));
+    expect(click).toHaveBeenCalled();
+    expect(await screen.findByRole('status')).toHaveTextContent('Factura generada descargada.');
+    globalThis.fetch = originalFetch; URL.createObjectURL = originalCreateObjectURL; URL.revokeObjectURL = originalRevokeObjectURL; click.mockRestore();
+  });
+
+  it('muestra Facturado y permite descargarlo conservando Registrar pago', async () => {
+    setupApi({ payableAccount: { ...payable, invoiceStatus: 'invoiced', invoiceNumber: 'FAC-2026-000001' } });
+    render(<FinancePage session={session} />); fireEvent.click(await screen.findByRole('button', { name: 'Cuentas por pagar' }));
+    expect(await screen.findByText('Facturado · FAC-2026-000001')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Registrar pago' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Descargar factura' })).toBeInTheDocument();
   });
 
   it('rechaza en la interfaz un sobrepago y comunica un error del servidor', async () => {

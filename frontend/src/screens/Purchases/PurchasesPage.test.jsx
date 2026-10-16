@@ -12,10 +12,10 @@ const session = { token: 'token', user: { id: 'user-1', permissions: ['purchases
 
 beforeEach(() => apiRequest.mockReset());
 
-function setupApi({ receiveError = null } = {}) {
+function setupApi({ receiveError = null, purchaseItem = purchase } = {}) {
   apiRequest.mockImplementation((path, options = {}) => {
     if (typeof path !== 'string') return Promise.resolve({ data: [] });
-    if (path.startsWith('/api/purchases?')) return Promise.resolve({ data: [purchase], pagination: { page: 1, limit: 20, total: 1, pages: 1 } });
+    if (path.startsWith('/api/purchases?')) return Promise.resolve({ data: [purchaseItem], pagination: { page: 1, limit: 20, total: 1, pages: 1 } });
     if (path === '/api/suppliers?status=active&page=1&limit=100&sort=name&order=asc') return Promise.resolve({ data: [supplier] });
     if (path === '/api/products?status=active&page=1&limit=100&sort=name&order=asc') return Promise.resolve({ data: [product] });
     if (path === '/api/inventory/warehouses') return Promise.resolve({ data: [warehouse] });
@@ -28,7 +28,7 @@ function setupApi({ receiveError = null } = {}) {
 
 describe('PurchasesPage', () => {
   it('consulta compras persistentes y muestra acciones según permisos/estado', async () => {
-    setupApi();
+    setupApi({ purchaseItem: { ...purchase, paymentStatus: 'paid', paymentBalance: 0 } });
     render(<PurchasesPage session={session} />);
     expect(await screen.findByText('COM-2026-000001')).toBeInTheDocument();
     expect(screen.getByText('Proveedor Uno')).toBeInTheDocument();
@@ -58,6 +58,13 @@ describe('PurchasesPage', () => {
     const post = apiRequest.mock.calls.find(([path, options]) => path === '/api/purchases' && options?.method === 'POST');
     expect(JSON.parse(post[1].body)).toEqual({ supplierId: supplier.id, items: [{ productId: product.id, warehouseId: warehouse.id, quantity: 2, unitCost: 12, taxRate: 16 }] });
     expect(await screen.findByRole('status')).toHaveTextContent('Borrador COM-2026-000002 creado.');
+  });
+
+  it('muestra Pago pendiente y oculta recepción hasta liquidar CxP', async () => {
+    setupApi({ purchaseItem: { ...purchase, paymentStatus: 'partial', paymentBalance: 12 } });
+    render(<PurchasesPage session={session} />);
+    expect(await screen.findByText('Pago pendiente')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Recibir' })).not.toBeInTheDocument();
   });
 
   it.each(['', '0', '-1', '0.5'])('NUM-WEB-007: rejects purchase quantity %s without calling the API', async quantity => {
