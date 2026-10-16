@@ -20,17 +20,21 @@ function QuoteForm({ quote, catalogs, onSave, onClose }) {
       setError(items.length === 1 ? 'La cantidad debe ser mayor o igual a 1.' : 'La cantidad de cada producto debe ser mayor o igual a 1.');
       return;
     }
+    if (!customerId) { setError('Selecciona un cliente.'); return; }
+    if (items.some(item => !item.productId || !item.warehouseId)) { setError('Selecciona producto y almacén para cada partida.'); return; }
+    if (items.some(item => item.unitPrice === '' || !Number.isFinite(Number(item.unitPrice)) || Number(item.unitPrice) < 0)) { setError('El precio unitario debe ser mayor o igual a 0.'); return; }
+    if (items.some(item => !Number.isFinite(Number(item.taxRate)) || Number(item.taxRate) < 0 || Number(item.taxRate) > 100)) { setError('El impuesto debe estar entre 0 y 100.'); return; }
     setSaving(true);
     try { await onSave({ customerId, items: items.map(item => ({ productId: item.productId, warehouseId: item.warehouseId, quantity: Number(item.quantity), unitPrice: Number(item.unitPrice), taxRate: Number(item.taxRate) })) }); }
     catch (e) { setError(e.message || 'No se pudo guardar la cotización.'); } finally { setSaving(false); }
   }
   return <div className="sales-modal-backdrop"><section className="card sales-modal" role="dialog" aria-modal="true" aria-labelledby="quote-form-title">
     <div className="sales-modal-heading"><div><span className="eyebrow">Cotizaciones</span><h3 id="quote-form-title">{quote ? `Editar ${quote.folio}` : 'Nueva cotización'}</h3></div><button type="button" className="users-icon-button" onClick={onClose} aria-label="Cerrar">×</button></div>
-    <form onSubmit={submit}><label>Cliente<select required value={customerId} onChange={e => setCustomerId(e.target.value)}><option value="">Selecciona un cliente</option>{catalogs.clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+    <form noValidate onSubmit={submit}><label>Cliente<select required value={customerId} onChange={e => setCustomerId(e.target.value)}><option value="">Selecciona un cliente</option>{catalogs.clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
       {items.map((item, i) => <fieldset className="sales-line" key={i}><legend>Partida {i + 1}</legend>
         <label>Producto<select required value={item.productId} onChange={e => { const p = catalogs.products.find(value => value.id === e.target.value); change(i, 'productId', e.target.value); if (p) change(i, 'unitPrice', String(p.salePrice)); }}><option value="">Selecciona producto</option>{catalogs.products.map(p => <option key={p.id} value={p.id}>{p.code} · {p.name}</option>)}</select></label>
         <label>Almacén<select required value={item.warehouseId} onChange={e => change(i, 'warehouseId', e.target.value)}><option value="">Selecciona almacén</option>{catalogs.warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select></label>
-        <div className="sales-line-numbers"><label>Cantidad<NumericInput min="1" step="1" required value={item.quantity} onChange={e => change(i, 'quantity', e.target.value)} /></label><label>Precio unitario<NumericInput min="0" step="0.01" required value={item.unitPrice} onChange={e => change(i, 'unitPrice', e.target.value)} /></label><label>Impuesto %<NumericInput min="0" max="100" step="0.01" value={item.taxRate} onChange={e => change(i, 'taxRate', e.target.value)} /></label></div>
+        <div className="sales-line-numbers"><label>Cantidad<NumericInput numericMode="integer" required value={item.quantity} onChange={e => change(i, 'quantity', e.target.value)} /></label><label>Precio unitario<NumericInput numericMode="decimal" required value={item.unitPrice} onChange={e => change(i, 'unitPrice', e.target.value)} /></label><label>Impuesto %<NumericInput numericMode="decimal" value={item.taxRate} onChange={e => change(i, 'taxRate', e.target.value)} /></label></div>
         {items.length > 1 ? <button type="button" className="sales-remove-line" onClick={() => setItems(current => current.filter((_, n) => n !== i))}>Quitar partida</button> : null}
       </fieldset>)}
       <button type="button" className="secondary" onClick={() => setItems(current => [...current, blankItem()])}>+ Agregar producto</button>

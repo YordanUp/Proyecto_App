@@ -52,6 +52,19 @@ describe('ReturnsPanel', () => {
     expect(JSON.parse(options.body)).toEqual({ saleId: sale.id, reason: 'Empaque intacto', notes: '', items: [{ productId: 'product-1', warehouseId: 'warehouse-1', saleLineIndex: 0, quantity: 2 }] });
   });
 
+  it('usa decimal text y desactiva la validación HTML5 en el formulario de devolución', async () => {
+    render(<ReturnsPanel session={session} />);
+    fireEvent.click(await screen.findByRole('button', { name: '+ Crear devolución' }));
+    await screen.findByRole('option', { name: /VEN-2026-000001/ });
+    fireEvent.change(screen.getByLabelText('Venta confirmada'), { target: { value: sale.id } });
+    const input = await screen.findByLabelText('Devolver partida 1');
+    expect(input).toHaveAttribute('type', 'text');
+    expect(input).toHaveAttribute('inputMode', 'decimal');
+    expect(screen.getByRole('dialog').querySelector('form')).toHaveAttribute('novalidate');
+    fireEvent.change(input, { target: { value: '0.5' } });
+    expect(input).toHaveValue('0.5');
+  });
+
   it('RET-WEB-006 mantiene el formulario abierto y muestra errores de exceso', async () => {
     apiRequest.mockImplementation((path, options = {}) => {
       if (path.startsWith('/api/sales/returns?')) return Promise.resolve({ data: [] });

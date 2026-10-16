@@ -48,6 +48,12 @@ function SaleForm({ clients, products, warehouses, loading, loadError, onClose, 
     }
     if (!customerId) return setError('Selecciona un cliente.');
     if (items.some(item => !item.productId || !item.warehouseId)) return setError('Selecciona producto y almacén para cada partida.');
+    if (items.some(item => {
+      const product = products.find(value => value.id === item.productId);
+      const price = item.unitPrice === '' ? Number(product?.salePrice || 0) : Number(item.unitPrice);
+      return !Number.isFinite(price) || price < Number(product?.purchasePrice || 0);
+    })) return setError('El precio unitario debe ser válido y no menor al costo del producto.');
+    if (items.some(item => !Number.isFinite(Number(item.taxRate)) || Number(item.taxRate) < 0 || Number(item.taxRate) > 100)) return setError('El impuesto debe estar entre 0 y 100.');
     setSaving(true);
     try {
       await onCreate({ customerId, items: items.map(item => ({
@@ -63,7 +69,7 @@ function SaleForm({ clients, products, warehouses, loading, loadError, onClose, 
       <div className="sales-modal-heading"><div><span className="eyebrow">Nueva operación</span><h3 id="sales-form-title">Crear borrador de venta</h3></div><button type="button" className="users-icon-button" aria-label="Cerrar" onClick={onClose}>×</button></div>
       {loading ? <p role="status">Cargando clientes, productos y almacenes…</p> : null}
       {loadError ? <p className="form-error" role="alert">{loadError}</p> : null}
-      <form onSubmit={submit}>
+      <form noValidate onSubmit={submit}>
         <label>Cliente
           <select value={customerId} onChange={event => setCustomerId(event.target.value)} required>
             <option value="">Selecciona un cliente</option>
@@ -91,9 +97,9 @@ function SaleForm({ clients, products, warehouses, loading, loadError, onClose, 
               </select>
             </label>
             <div className="sales-line-numbers">
-              <label>Cantidad<NumericInput aria-label={`Cantidad partida ${index + 1}`} min="1" step="1" value={item.quantity} onChange={event => updateItem(index, 'quantity', event.target.value)} required /></label>
-              <label>Precio unitario<NumericInput aria-label={`Precio partida ${index + 1}`} min={selected?.purchasePrice || 0} step="0.01" value={item.unitPrice === '' && selected ? selected.salePrice : item.unitPrice} onChange={event => updateItem(index, 'unitPrice', event.target.value)} required /></label>
-              <label>Impuesto %<NumericInput aria-label={`Impuesto partida ${index + 1}`} min="0" max="100" step="0.01" value={item.taxRate} onChange={event => updateItem(index, 'taxRate', event.target.value)} /></label>
+              <label>Cantidad<NumericInput numericMode="integer" aria-label={`Cantidad partida ${index + 1}`} value={item.quantity} onChange={event => updateItem(index, 'quantity', event.target.value)} required /></label>
+              <label>Precio unitario<NumericInput numericMode="decimal" aria-label={`Precio partida ${index + 1}`} value={item.unitPrice === '' && selected ? selected.salePrice : item.unitPrice} onChange={event => updateItem(index, 'unitPrice', event.target.value)} required /></label>
+              <label>Impuesto %<NumericInput numericMode="decimal" aria-label={`Impuesto partida ${index + 1}`} value={item.taxRate} onChange={event => updateItem(index, 'taxRate', event.target.value)} /></label>
             </div>
             {items.length > 1 ? <button type="button" className="sales-remove-line" onClick={() => setItems(current => current.filter((_, lineIndex) => lineIndex !== index))}>Quitar partida</button> : null}
           </fieldset>;

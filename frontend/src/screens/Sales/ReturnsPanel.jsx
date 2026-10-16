@@ -54,10 +54,22 @@ export default function ReturnsPanel({ session, createFromSaleId = '' }) {
   }
 
   async function submit(event) {
-    event.preventDefault(); setSaving(true); setError(''); setNotice('');
+    event.preventDefault(); setError(''); setNotice('');
+    if (!sale || !reason.trim()) { setError('Selecciona una venta y escribe el motivo.'); return; }
+    const invalidQuantity = (sale.items || []).map((line, index) => {
+      const raw = quantities[index] || '';
+      if (raw === '') return '';
+      const quantity = Number(raw);
+      const available = Math.max(0, Number(line.quantity) - Number(returnedByLine[index] || 0));
+      if (!Number.isFinite(quantity) || quantity < 0) return 'La cantidad debe ser válida.';
+      if (quantity > available) return 'La cantidad excede lo disponible.';
+      return '';
+    }).find(Boolean);
+    if (invalidQuantity) { setError(invalidQuantity); return; }
     const returnItems = (sale?.items || []).map((line, saleLineIndex) => ({ line, saleLineIndex, quantity: Number(quantities[saleLineIndex] || 0) }))
       .filter(value => value.quantity > 0).map(({ line, saleLineIndex, quantity }) => ({ productId: line.productId, warehouseId: line.warehouseId, saleLineIndex, quantity }));
-    if (!sale || !returnItems.length || !reason.trim()) { setError('Selecciona una venta, captura una cantidad y escribe el motivo.'); setSaving(false); return; }
+    if (!returnItems.length) { setError('Selecciona una venta, captura una cantidad y escribe el motivo.'); return; }
+    setSaving(true);
     try {
       const result = await apiRequest('/api/sales/returns', { method: 'POST', body: JSON.stringify({ saleId: sale.id, reason, notes, items: returnItems }) });
       setNotice(`Devolución ${result.data.folio} procesada.`); setCreating(false); setPage(1); await load();
@@ -85,8 +97,8 @@ export default function ReturnsPanel({ session, createFromSaleId = '' }) {
       {!items.length ? <tr><td colSpan="8" className="empty-state">No hay devoluciones para mostrar.</td></tr> : items.map(item => <tr key={item.id}><td><strong>{item.folio}</strong></td><td>{item.sale?.folio || item.saleId}</td><td>{item.customer?.name || item.customerId}</td><td>{new Date(item.processedAt || item.createdAt).toLocaleDateString()}</td><td>{item.reason}</td><td>{money(item.total)}</td><td>Procesada</td><td><button className="secondary" onClick={() => showDetail(item)}>Detalle</button></td></tr>)}
     </tbody></table>{pagination.pages > 1 ? <nav className="inventory-pagination"><span>{pagination.total} devoluciones · Página {page} de {pagination.pages}</span><div><button className="secondary" disabled={page <= 1} onClick={() => setPage(value => value - 1)}>Anterior</button><button className="secondary" disabled={page >= pagination.pages} onClick={() => setPage(value => value + 1)}>Siguiente</button></div></nav> : null}</section>}
     {creating ? <div className="sales-modal-backdrop"><section className="card sales-modal" role="dialog" aria-modal="true" aria-labelledby="return-create-title"><div className="sales-modal-heading"><div><span className="eyebrow">Nueva operación</span><h3 id="return-create-title">Crear devolución</h3></div><button className="users-icon-button" aria-label="Cerrar" onClick={() => setCreating(false)}>×</button></div>
-      <form onSubmit={submit}><label>Venta confirmada<select value={saleId} onChange={event => chooseSale(event.target.value)} required><option value="">Selecciona venta</option>{sales.map(value => <option key={value.id} value={value.id}>{value.folio} · {value.customer?.name || 'Cliente'}</option>)}</select></label>
-        {sale ? <><div className="sales-detail-lines"><h4>Partidas disponibles</h4>{sale.items.map((line, index) => { const returned = Number(returnedByLine[index] || 0); const available = Math.max(0, Number(line.quantity) - returned); return <div className="sales-detail-line" key={index}><span><strong>{line.productNameSnapshot}</strong><small>{line.warehouse?.name || line.warehouseId} · vendida {line.quantity} · devuelta {returned} · disponible {available}</small></span><label>Devolver<NumericInput aria-label={`Devolver partida ${index + 1}`} min="0" max={available} step="any" value={quantities[index] || ''} onChange={event => setQuantities(current => ({ ...current, [index]: event.target.value }))} disabled={!available} /></label></div>; })}</div>
+      <form noValidate onSubmit={submit}><label>Venta confirmada<select value={saleId} onChange={event => chooseSale(event.target.value)} required><option value="">Selecciona venta</option>{sales.map(value => <option key={value.id} value={value.id}>{value.folio} · {value.customer?.name || 'Cliente'}</option>)}</select></label>
+        {sale ? <><div className="sales-detail-lines"><h4>Partidas disponibles</h4>{sale.items.map((line, index) => { const returned = Number(returnedByLine[index] || 0); const available = Math.max(0, Number(line.quantity) - returned); return <div className="sales-detail-line" key={index}><span><strong>{line.productNameSnapshot}</strong><small>{line.warehouse?.name || line.warehouseId} · vendida {line.quantity} · devuelta {returned} · disponible {available}</small></span><label>Devolver<NumericInput numericMode="decimal" aria-label={`Devolver partida ${index + 1}`} value={quantities[index] || ''} onChange={event => setQuantities(current => ({ ...current, [index]: event.target.value }))} disabled={!available} /></label></div>; })}</div>
           <label>Motivo<input value={reason} onChange={event => setReason(event.target.value)} maxLength="300" required /></label><label>Notas<textarea value={notes} onChange={event => setNotes(event.target.value)} maxLength="1000" rows="3" /></label><div className="sales-form-totals"><span>Total estimado <strong>{money(estimatedTotal)}</strong></span></div><p className="inventory-hint">Precios e impuestos se toman de la venta; el servidor vuelve a comprobar existencias devolvibles.</p></> : null}
         <div className="sales-modal-actions"><button type="button" className="secondary" onClick={() => setCreating(false)} disabled={saving}>Cancelar</button>{sale && canCreate ? <button type="submit" className="users-primary-button" disabled={saving}>{saving ? 'Procesando…' : 'Procesar devolución'}</button> : null}</div>
       </form>

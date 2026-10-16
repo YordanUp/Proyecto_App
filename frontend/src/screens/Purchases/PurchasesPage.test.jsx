@@ -44,12 +44,10 @@ describe('PurchasesPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: '+ Nueva compra' }));
     const dialog = await screen.findByRole('dialog');
     await within(dialog).findByRole('option', { name: /Producto Uno/ });
-    expect(within(dialog).getByLabelText('Cantidad partida 1')).toHaveAttribute('min', '1');
-    expect(within(dialog).getByLabelText('Cantidad partida 1')).toHaveAttribute('step', '1');
-    expect(within(dialog).getByLabelText('Costo partida 1')).toHaveAttribute('step', '0.01');
-    expect(within(dialog).getByLabelText('Impuesto partida 1')).toHaveAttribute('min', '0');
-    expect(within(dialog).getByLabelText('Impuesto partida 1')).toHaveAttribute('max', '100');
-    expect(within(dialog).getByLabelText('Impuesto partida 1')).toHaveAttribute('step', '0.01');
+    expect(within(dialog).getByLabelText('Cantidad partida 1')).toHaveAttribute('type', 'text');
+    expect(within(dialog).getByLabelText('Cantidad partida 1')).toHaveAttribute('inputMode', 'numeric');
+    expect(within(dialog).getByLabelText('Costo partida 1')).toHaveAttribute('inputMode', 'decimal');
+    expect(within(dialog).getByLabelText('Impuesto partida 1')).toHaveAttribute('inputMode', 'decimal');
     fireEvent.change(within(dialog).getByLabelText('Proveedor'), { target: { value: supplier.id } });
     fireEvent.change(within(dialog).getByLabelText('Producto'), { target: { value: product.id } });
     fireEvent.change(within(dialog).getByLabelText('Almacén'), { target: { value: warehouse.id } });
@@ -62,15 +60,26 @@ describe('PurchasesPage', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Borrador COM-2026-000002 creado.');
   });
 
-  it('NUM-WEB-007: rejects purchase quantity zero without calling the API', async () => {
+  it.each(['', '0', '-1', '0.5'])('NUM-WEB-007: rejects purchase quantity %s without calling the API', async quantity => {
     setupApi();
     render(<PurchasesPage session={session} />);
     fireEvent.click(await screen.findByRole('button', { name: '+ Nueva compra' }));
     const dialog = await screen.findByRole('dialog');
-    fireEvent.change(within(dialog).getByLabelText('Cantidad partida 1'), { target: { value: '0' } });
+    fireEvent.change(within(dialog).getByLabelText('Cantidad partida 1'), { target: { value: quantity } });
     fireEvent.submit(dialog.querySelector('form'));
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent('La cantidad de cada producto debe ser mayor o igual a 1.');
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('La cantidad debe ser mayor o igual a 1.');
     expect(apiRequest).not.toHaveBeenCalledWith('/api/purchases', expect.objectContaining({ method: 'POST' }));
+  });
+
+  it('accepts purchase quantity one', async () => {
+    setupApi(); render(<PurchasesPage session={session} />); fireEvent.click(await screen.findByRole('button', { name: '+ Nueva compra' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('Proveedor'), { target: { value: supplier.id } });
+    fireEvent.change(within(dialog).getByLabelText('Producto'), { target: { value: product.id } });
+    fireEvent.change(within(dialog).getByLabelText('Almacén'), { target: { value: warehouse.id } });
+    fireEvent.change(within(dialog).getByLabelText('Cantidad partida 1'), { target: { value: '1' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Crear borrador' }));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith('/api/purchases', expect.objectContaining({ method: 'POST' })));
   });
 
   it('confirma antes de recibir y muestra errores devueltos por la API', async () => {
