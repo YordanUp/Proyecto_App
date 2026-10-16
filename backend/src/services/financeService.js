@@ -8,6 +8,7 @@ const Sale = require('../models/Sale');
 const Purchase = require('../models/Purchase');
 const { recordAudit } = require('./auditService');
 const { notifyPermission } = require('./notificationService');
+const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, HeadingLevel } = require('docx');
 
 const MAX_PAGE_SIZE = 100;
 const PAYMENT_METHODS = new Set(['cash', 'transfer', 'card', 'check', 'other']);
@@ -77,7 +78,7 @@ async function createReceivableForSale({ sale, userId, session }) {
 async function createPayableForPurchase({ purchase, userId, session }) {
   if (!session?.inTransaction()) throw new Error('La cuenta por pagar requiere una transacción activa');
   const existing = await AccountsPayable.findOne({ purchase: purchase._id }).session(session);
-  if (existing) throw financeError(409, 'PAYABLE_ALREADY_EXISTS', 'La compra ya tiene una cuenta por pagar');
+  if (existing) return existing;
   const originalAmount = money(purchase.total);
   const paidAt = originalAmount === 0 ? new Date() : null;
   const values = {
@@ -87,6 +88,25 @@ async function createPayableForPurchase({ purchase, userId, session }) {
   };
   const [account] = await AccountsPayable.create([values], { session });
   await recordAudit({ userId, action: 'payable.created', module: 'finance', recordId: account.id, after: values, session });
+  return account;
+}
+
+async function getPayableForPurchase(purchaseId, session) {
+  let query = AccountsPayable.findOne({ purchase: purchaseId });
+  if (session) query = query.session(session);
+  return query;
+}
+
+async function cancelPayableForPurchase({ purchaseId, userId, session }) {
+  if (!session?.inTransaction()) throw new Error('La cancelación financiera requiere una transacción activa');
+  const account = await AccountsPayable.findOne({ purchase: purchaseId }).session(session);
+  if (!account) return null;
+  if (account.paidAmount > 0) throw financeError(409, 'PURCHASE_HAS_PAYMENTS', 'La compra tiene pagos registrados y requiere un flujo explícito de reembolso antes de cancelarse');
+  if (account.status === 'cancelled') return account;
+  const before = { status: account.status, balance: account.balance };
+  account.status = 'cancelled';
+  await account.save({ session });
+  await recordAudit({ userId, action: 'payable.cancelled', module: 'finance', recordId: account.id, before, after: account, session });
   return account;
 }
 
@@ -132,9 +152,69 @@ function serializeAccount(account, kind) {
     [isReceivable ? 'sale' : 'purchase']: source && typeof source === 'object' && 'folio' in source ? { id: String(source._id), folio: source.folio } : { id: String(source) },
     originalAmount: account.originalAmount, paidAmount: account.paidAmount, balance: account.balance,
     status: account.status, dueDate: account.dueDate, paidAt: account.paidAt,
+    ...(isReceivable ? {} : { invoiceStatus: account.invoiceStatus || 'not_invoiced', invoiceNumber: account.invoiceNumber || null, invoiceGeneratedAt: account.invoiceGeneratedAt || null }),
     createdBy: creator && typeof creator === 'object' && 'name' in creator ? { id: String(creator._id), name: creator.name } : String(creator),
     createdAt: account.createdAt, updatedAt: account.updatedAt
   };
+}
+
+async function getPayableSummariesForPurchases(purchaseIds, session) {
+  if (!purchaseIds.length) return new Map();
+  let query = AccountsPayable.find({ purchase: { $in: purchaseIds } }).select('purchase status balance').lean();
+  if (session) query = query.session(session);
+  const accounts = await query;
+  return new Map(accounts.map(account => [String(account.purchase), { status: account.status, balance: account.balance }]));
+}
+
+function invoiceSnapshot(purchase, supplier, account) {
+  return {
+    supplier: { name: supplier.name, email: supplier.email || '' },
+    purchase: { folio: purchase.folio, createdAt: purchase.createdAt, items: purchase.items.map(item => ({ name: item.productNameSnapshot, sku: item.skuSnapshot || '', quantity: item.quantity, unitCost: item.unitCost, tax: item.tax, subtotal: item.subtotal, total: item.total })) },
+    amounts: { subtotal: purchase.subtotal, taxes: purchase.taxes, total: purchase.total, paidAmount: account.paidAmount, balance: account.balance, paymentStatus: account.status },
+    payableFolio: account.folio
+  };
+}
+
+async function generatePayableInvoice(id, userId) {
+  const accountId = objectId(id);
+  const actorId = objectId(userId, 'usuario');
+  const snapshot = await runTransaction(async session => {
+    const account = await AccountsPayable.findById(accountId).session(session);
+    if (!account) throw financeError(404, 'PAYABLE_NOT_FOUND', 'La cuenta por pagar no existe');
+    if (account.status === 'cancelled') throw financeError(409, 'PAYABLE_CANCELLED', 'No se puede generar una factura para una cuenta cancelada');
+    if (account.invoiceStatus !== 'invoiced' || !account.invoiceSnapshot || !account.invoiceNumber) {
+      const purchase = await Purchase.findById(account.purchase).session(session);
+      const supplier = await Supplier.findById(account.supplier).session(session);
+      if (!purchase || !supplier) throw financeError(409, 'INVOICE_SOURCE_NOT_FOUND', 'No se encontraron los datos de compra o proveedor para generar la factura');
+      const year = new Date().getUTCFullYear();
+      const counter = await Sequence.findOneAndUpdate({ _id: `purchase-invoice:${year}` }, { $inc: { value: 1 } }, { new: true, upsert: true, setDefaultsOnInsert: true, session });
+      account.invoiceNumber = `FAC-${year}-${String(counter.value).padStart(6, '0')}`;
+      account.invoiceStatus = 'invoiced';
+      account.invoiceGeneratedAt = new Date();
+      account.invoiceSnapshot = invoiceSnapshot(purchase, supplier, account);
+      await account.save({ session });
+      await recordAudit({ userId: actorId, action: 'finance.purchase_invoice.generated', module: 'finance', recordId: account.id, after: { invoiceNumber: account.invoiceNumber }, session });
+    }
+    return { invoiceNumber: account.invoiceNumber, generatedAt: account.invoiceGeneratedAt, snapshot: account.invoiceSnapshot };
+  });
+  const moneyText = value => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(value || 0));
+  const dateText = value => value ? new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(value)) : '—';
+  const snap = snapshot.snapshot;
+  const rows = [
+    new TableRow({ children: ['Producto', 'Cantidad', 'Costo unitario', 'Importe'].map(text => new TableCell({ children: [new Paragraph({ children: [new TextRun({ text, bold: true })] })] })) }),
+    ...snap.purchase.items.map(item => new TableRow({ children: [item.name, String(item.quantity), moneyText(item.unitCost), moneyText(item.total)].map(text => new TableCell({ children: [new Paragraph(String(text))] })) }))
+  ];
+  const document = new Document({ sections: [{ children: [
+    new Paragraph({ text: 'YordanUp ERP', heading: HeadingLevel.TITLE }),
+    new Paragraph({ text: 'FACTURA SIMPLE — DOCUMENTO INFORMATIVO', heading: HeadingLevel.HEADING_1 }),
+    new Paragraph(`Número: ${snapshot.invoiceNumber}`), new Paragraph(`Fecha de generación: ${dateText(snapshot.generatedAt)}`),
+    new Paragraph(`Proveedor: ${snap.supplier.name}`), new Paragraph(`Compra: ${snap.purchase.folio}`), new Paragraph(`Cuenta por pagar: ${snap.payableFolio}`),
+    new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows }),
+    new Paragraph(`Subtotal: ${moneyText(snap.amounts.subtotal)}`), new Paragraph(`Impuestos: ${moneyText(snap.amounts.taxes)}`),
+    new Paragraph(`Total: ${moneyText(snap.amounts.total)}`), new Paragraph(`Importe original: ${moneyText(snap.amounts.total)}`), new Paragraph(`Pagado: ${moneyText(snap.amounts.paidAmount)}`), new Paragraph(`Saldo pendiente: ${moneyText(snap.amounts.balance)}`), new Paragraph(`Estado de pago: ${snap.amounts.paymentStatus}`),
+    new Paragraph('Documento generado con fines de simulación académica. No constituye un CFDI.')
+  ] }] });
+  return { buffer: await Packer.toBuffer(document), filename: `Factura_${snapshot.invoiceNumber}.docx`, contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', invoiceNumber: snapshot.invoiceNumber };
 }
 
 function accountPopulation(query, kind) {
@@ -314,12 +394,13 @@ async function applySalesReturn({ sale, returnAmount, cumulativeReturnTotal, use
 }
 
 module.exports = {
-  createReceivableForSale, createPayableForPurchase, cancelReceivableForSale, applySalesReturn,
+  createReceivableForSale, createPayableForPurchase, getPayableForPurchase, cancelPayableForPurchase, cancelReceivableForSale, applySalesReturn,
   listReceivables: query => listAccounts('receivable', query),
   getReceivable: id => getAccount('receivable', id),
   payReceivable: (id, input, actorId) => recordPayment('receivable', id, input, actorId),
   listPayables: query => listAccounts('payable', query),
   getPayable: id => getAccount('payable', id),
   payPayable: (id, input, actorId) => recordPayment('payable', id, input, actorId),
-  listMovements
+  listMovements,
+  getPayableSummariesForPurchases, generatePayableInvoice
 };

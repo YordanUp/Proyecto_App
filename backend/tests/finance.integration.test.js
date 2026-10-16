@@ -2,6 +2,7 @@ require('dotenv').config();
 process.env.NODE_ENV = 'test';
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const JSZip = require('jszip');
 const { randomUUID } = require('node:crypto');
 const request = require('supertest');
 const mongoose = require('mongoose');
@@ -65,6 +66,10 @@ test('MongoDB integration: receivables, payables, payments and source transactio
   async function receivePurchase(purchase) {
     const ordered = await request(app).post(`/api/purchases/${purchase.id}/order`).set(auth).send({});
     assert.equal(ordered.status, 200);
+    const account = await AccountsPayable.findOne({ purchase: purchase.id });
+    assert.ok(account);
+    const payment = await request(app).post(`/api/finance/payables/${account.id}/payments`).set(auth).send({ amount: account.balance, paymentMethod: 'transfer' });
+    assert.equal(payment.status, 201);
     return request(app).post(`/api/purchases/${purchase.id}/receive`).set(auth).send({});
   }
 
@@ -108,10 +113,9 @@ test('MongoDB integration: receivables, payables, payments and source transactio
   assert.equal((await request(app).post(`/api/finance/receivables/${receivable.id}/payments`).set(auth).send({ amount: 1 })).status, 409);
   assert.equal(await FinancialMovement.countDocuments({ accountId: receivable.id, direction: 'IN' }), 2);
 
-  // FIN-002/004/008/009/010/011: receipt atomically creates one payable; outgoing payments update it.
+  // FIN-002/004/008/009/010/011: ordering creates CxP; receipt waits for full payment.
   const purchase = await createPurchase(20);
-  const purchaseReceipt = await receivePurchase(purchase);
-  assert.equal(purchaseReceipt.status, 200);
+  assert.equal((await request(app).post(`/api/purchases/${purchase.id}/order`).set(auth).send({})).status, 200);
   let payable = await AccountsPayable.findOne({ purchase: purchase.id });
   assert.ok(payable);
   assert.equal(payable.folio.startsWith('CXP-'), true);
@@ -119,6 +123,10 @@ test('MongoDB integration: receivables, payables, payments and source transactio
   assert.equal(payable.balance, 1000);
   assert.equal(payable.status, 'pending');
   assert.equal(await AccountsPayable.countDocuments({ purchase: purchase.id }), 1);
+  const blockedReceipt = await request(app).post(`/api/purchases/${purchase.id}/receive`).set(auth).send({});
+  assert.equal(blockedReceipt.status, 409);
+  assert.equal(blockedReceipt.body.error, 'PURCHASE_PAYMENT_PENDING');
+  assert.equal(await InventoryMovement.countDocuments({ referenceType: 'purchase', referenceId: purchase.id }), 0);
   assert.equal((await request(app).post(`/api/purchases/${purchase.id}/receive`).set(auth).send({})).status, 409);
   assert.equal(await AccountsPayable.countDocuments({ purchase: purchase.id }), 1);
   const payableList = await request(app).get('/api/finance/payables?search=Proveedor%20Finanzas&status=pending&page=1&limit=10').set(auth);
@@ -138,6 +146,7 @@ test('MongoDB integration: receivables, payables, payments and source transactio
   assert.equal(partialPayable.body.data.account.balance, 700);
   assert.equal(partialPayable.body.data.account.status, 'partial');
   assert.equal(partialPayable.body.data.movement.direction, 'OUT');
+  assert.equal((await request(app).post(`/api/purchases/${purchase.id}/receive`).set(auth).send({})).status, 409, 'parcialmente pagada aún bloquea recepción');
   const overpayPayable = await request(app).post(`/api/finance/payables/${payable.id}/payments`).set(auth).send({ amount: 701 });
   assert.equal(overpayPayable.status, 409);
   const completePayable = await request(app).post(`/api/finance/payables/${payable.id}/payments`).set(auth).send({ amount: 700 });
@@ -146,6 +155,29 @@ test('MongoDB integration: receivables, payables, payments and source transactio
   assert.equal(completePayable.body.data.account.balance, 0);
   assert.ok(completePayable.body.data.account.paidAt);
   assert.equal(await FinancialMovement.countDocuments({ accountId: payable.id, direction: 'OUT' }), 2);
+  const binaryParser = (response, callback) => { const chunks = []; response.on('data', chunk => chunks.push(chunk)); response.on('end', () => callback(null, Buffer.concat(chunks))); };
+  const invoiceFirst = await request(app).get(`/api/finance/payables/${payable.id}/invoice`).set(auth).buffer(true).parse(binaryParser);
+  assert.equal(invoiceFirst.status, 200);
+  assert.match(invoiceFirst.headers['content-type'], /application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document/);
+  assert.match(invoiceFirst.headers['content-disposition'], /Factura_FAC-\d{4}-\d{6}\.docx/);
+  assert.equal(invoiceFirst.body.subarray(0, 2).toString(), 'PK');
+  const invoiceArchive = await JSZip.loadAsync(invoiceFirst.body);
+  const invoiceXml = await invoiceArchive.file('word/document.xml').async('string');
+  assert.match(invoiceXml, /FACTURA SIMPLE/);
+  assert.match(invoiceXml, /No constituye un CFDI/);
+  assert.doesNotMatch(invoiceXml, /\[object Object\]/);
+  const invoicedPayable = await AccountsPayable.findById(payable.id);
+  const stableInvoiceNumber = invoicedPayable.invoiceNumber;
+  assert.equal(invoicedPayable.invoiceStatus, 'invoiced');
+  const auditCount = await AuditLog.countDocuments({ action: 'finance.purchase_invoice.generated', recordId: payable.id });
+  const invoiceSecond = await request(app).get(`/api/finance/payables/${payable.id}/invoice`).set(auth).buffer(true).parse(binaryParser);
+  assert.equal(invoiceSecond.status, 200);
+  assert.equal((await AccountsPayable.findById(payable.id)).invoiceNumber, stableInvoiceNumber);
+  assert.equal(await AuditLog.countDocuments({ action: 'finance.purchase_invoice.generated', recordId: payable.id }), auditCount);
+  const readOnlyRole = await Role.create({ name: `finance-invoice-read-${process.pid}`, permissions: ['finance.read'] });
+  const readOnlyUser = await User.create({ name: 'Lector finanzas', email: `finance-invoice-reader-${process.pid}@test.invalid`, passwordHash: await hashPassword('clave-lector-finanzas-larga'), role: readOnlyRole.id });
+  const readOnlyLogin = await request(app).post('/api/auth/login').send({ email: readOnlyUser.email, password: 'clave-lector-finanzas-larga' });
+  assert.equal((await request(app).get(`/api/finance/payables/${payable.id}/invoice`).set('Authorization', `Bearer ${readOnlyLogin.body.data.token}`)).status, 403);
 
   // FIN-016/017: unpaid sale cancellation cancels its account; with payments it is blocked without erasing history.
   const unpaidSale = await createSale(1);
@@ -219,15 +251,18 @@ test('MongoDB integration: receivables, payables, payments and source transactio
   const purchaseCreationRollback = await createPurchase(2);
   const orderRollback = await request(app).post(`/api/purchases/${purchaseCreationRollback.id}/order`).set(auth).send({});
   assert.equal(orderRollback.status, 200);
+  const rollbackPayable = await AccountsPayable.findOne({ purchase: purchaseCreationRollback.id });
+  assert.ok(rollbackPayable);
+  assert.equal((await request(app).post(`/api/finance/payables/${rollbackPayable.id}/payments`).set(auth).send({ amount: rollbackPayable.balance })).status, 201);
   const purchaseStockBefore = await InventoryStock.findOne({ productId: product.id, warehouseId: warehouse.id });
-  const originalPayableCreate = AccountsPayable.create;
-  AccountsPayable.create = function failPayableCreate() { throw new Error('FIN-ROLLBACK payable create failure'); };
+  const originalPurchaseMovementCreate = InventoryMovement.create;
+  InventoryMovement.create = function failPurchaseMovement() { throw new Error('FIN-ROLLBACK purchase movement failure'); };
   let purchaseRollback;
   try { purchaseRollback = await request(app).post(`/api/purchases/${purchaseCreationRollback.id}/receive`).set(auth).send({}); }
-  finally { AccountsPayable.create = originalPayableCreate; }
+  finally { InventoryMovement.create = originalPurchaseMovementCreate; }
   assert.equal(purchaseRollback.status, 500);
   assert.equal((await Purchase.findById(purchaseCreationRollback.id)).status, 'ordered');
-  assert.equal(await AccountsPayable.countDocuments({ purchase: purchaseCreationRollback.id }), 0);
+  assert.equal((await AccountsPayable.findById(rollbackPayable.id)).status, 'paid');
   assert.equal((await InventoryStock.findOne({ productId: product.id, warehouseId: warehouse.id })).quantity, purchaseStockBefore.quantity);
 
   // FIN-012: read-only finance users cannot post either side's payments.

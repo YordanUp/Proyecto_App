@@ -33,5 +33,14 @@ module.exports = {
   getPayables: listHandler(service.listPayables, 'Cuentas por pagar'),
   getPayable: detailHandler(service.getPayable, 'Cuenta por pagar', 'PAYABLE_NOT_FOUND'),
   payPayable: paymentHandler(service.payPayable, 'Pago'),
-  getMovements: listHandler(service.listMovements, 'Movimientos financieros')
+  getMovements: listHandler(service.listMovements, 'Movimientos financieros'),
+  downloadPayableInvoice: async (req, res, next) => {
+    try {
+      const invoice = await service.generatePayableInvoice(req.params.id, req.user.id);
+      res.setHeader('Content-Type', invoice.contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${invoice.filename}"`);
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+      return res.status(200).send(invoice.buffer);
+    } catch (error) { return next(error); }
+  }
 };

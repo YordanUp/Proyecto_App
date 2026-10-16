@@ -19,10 +19,13 @@ const AuditLog = require('../src/models/AuditLog');
 const InventoryStock = require('../src/models/InventoryStock');
 const InventoryMovement = require('../src/models/InventoryMovement');
 const Purchase = require('../src/models/Purchase');
+const AccountsPayable = require('../src/models/AccountsPayable');
+const FinancialMovement = require('../src/models/FinancialMovement');
 const Sequence = require('../src/models/Sequence');
 const { Category, Product, Supplier, Warehouse } = require('../src/models/catalog');
 const { PERMISSIONS } = require('../src/services/permissions');
 const { hashPassword } = require('../src/services/authService');
+const financeService = require('../src/services/financeService');
 
 test('MongoDB integration: persistent purchase workflow and transactional receiving', {
   skip: testUri ? false : 'Define TEST_MONGODB_URI con una instancia desechable de MongoDB compatible con transacciones'
@@ -85,10 +88,32 @@ test('MongoDB integration: persistent purchase workflow and transactional receiv
   const ordered = await request(app).post(`${route}/${purchaseId}/order`).set('Authorization', `Bearer ${admin}`).send({});
   assert.equal(ordered.status, 200, 'COM-003: ordena la compra');
   assert.equal(ordered.body.data.status, 'ordered');
+  const payable = await AccountsPayable.findOne({ purchase: purchaseId });
+  assert.ok(payable, 'COM-017: ordenar crea CxP sin afectar inventario');
+  assert.equal(payable.balance, 84.8);
+  const idempotencySession = await mongoose.startSession();
+  try {
+    let reused;
+    await idempotencySession.withTransaction(async () => {
+      const orderedPurchase = await Purchase.findById(purchaseId).session(idempotencySession);
+      reused = await financeService.createPayableForPurchase({ purchase: orderedPurchase, userId: user.id, session: idempotencySession });
+    });
+    assert.equal(String(reused._id), String(payable._id), 'COM-019: reintentar la creación reutiliza el mismo CxP');
+  } finally { await idempotencySession.endSession(); }
+  assert.equal(await AccountsPayable.countDocuments({ purchase: purchaseId }), 1);
   assert.equal((await InventoryStock.findOne({ productId: productB.id, warehouseId: warehouse.id })).quantity, 8, 'ordenar no afecta existencias');
   const invalidUpdate = await request(app).put(`${route}/${purchaseId}`).set('Authorization', `Bearer ${admin}`).send({ items: lines });
   assert.equal(invalidUpdate.status, 409, 'una compra ordenada no se edita');
 
+  const stockBeforePendingReceive = await InventoryStock.findOne({ productId: productB.id, warehouseId: warehouse.id });
+  const pendingReceive = await request(app).post(`${route}/${purchaseId}/receive`).set('Authorization', `Bearer ${admin}`).send({});
+  assert.equal(pendingReceive.status, 409, 'COM-018: impide recibir con CxP pendiente');
+  assert.equal(pendingReceive.body.error, 'PURCHASE_PAYMENT_PENDING');
+  assert.equal(pendingReceive.body.message, 'La compra debe estar totalmente pagada antes de poder recibirla.');
+  assert.equal(await InventoryMovement.countDocuments({ referenceType: 'purchase', referenceId: purchaseId }), 0);
+  assert.equal((await InventoryStock.findOne({ productId: productB.id, warehouseId: warehouse.id })).quantity, stockBeforePendingReceive.quantity);
+  const paid = await request(app).post(`/api/finance/payables/${payable.id}/payments`).set('Authorization', `Bearer ${admin}`).send({ amount: 84.8, paymentMethod: 'transfer' });
+  assert.equal(paid.status, 201);
   const received = await request(app).post(`${route}/${purchaseId}/receive`).set('Authorization', `Bearer ${admin}`).send({});
   assert.equal(received.status, 200, 'COM-004: recibe la compra');
   assert.equal(received.body.data.status, 'received');
@@ -132,6 +157,8 @@ test('MongoDB integration: persistent purchase workflow and transactional receiv
   const concurrentPurchase = await request(app).post(route).set('Authorization', `Bearer ${admin}`).send(body([{ ...lines[0], quantity: 4 }]));
   assert.equal(concurrentPurchase.status, 201);
   await request(app).post(`${route}/${concurrentPurchase.body.data.id}/order`).set('Authorization', `Bearer ${admin}`).send({});
+  const concurrentPayable = await AccountsPayable.findOne({ purchase: concurrentPurchase.body.data.id });
+  await request(app).post(`/api/finance/payables/${concurrentPayable.id}/payments`).set('Authorization', `Bearer ${admin}`).send({ amount: concurrentPayable.balance });
   const concurrentResults = await Promise.all(Array.from({ length: 2 }, () => request(app).post(`${route}/${concurrentPurchase.body.data.id}/receive`).set('Authorization', `Bearer ${admin}`).send({})));
   assert.equal(concurrentResults.filter(response => response.status === 200).length, 1, 'COM-016: solo una recepción concurrente gana');
   assert.equal(concurrentResults.filter(response => response.status === 409).length, 1);
@@ -142,6 +169,8 @@ test('MongoDB integration: persistent purchase workflow and transactional receiv
     { ...lines[0], quantity: 2 }, { ...lines[1], quantity: 2 }
   ]));
   await request(app).post(`${route}/${rollbackPurchase.body.data.id}/order`).set('Authorization', `Bearer ${admin}`).send({});
+  const rollbackPayable = await AccountsPayable.findOne({ purchase: rollbackPurchase.body.data.id });
+  await request(app).post(`/api/finance/payables/${rollbackPayable.id}/payments`).set('Authorization', `Bearer ${admin}`).send({ amount: rollbackPayable.balance });
   const stockBeforeRollback = await InventoryStock.findOne({ productId: productA.id, warehouseId: warehouse.id });
   const stockBBeforeRollback = await InventoryStock.findOne({ productId: productB.id, warehouseId: warehouse.id });
   const purchaseMovementsBefore = await InventoryMovement.countDocuments({ type: 'PURCHASE' });

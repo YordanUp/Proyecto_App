@@ -15,6 +15,7 @@ const Notification = require('../src/models/Notification');
 const { Category, Client, Product, Supplier, Warehouse } = require('../src/models/catalog');
 const InventoryStock = require('../src/models/InventoryStock');
 const AccountsReceivable = require('../src/models/AccountsReceivable');
+const AccountsPayable = require('../src/models/AccountsPayable');
 const { PERMISSIONS } = require('../src/services/permissions');
 const { hashPassword } = require('../src/services/authService');
 const inventoryService = require('../src/services/inventoryService');
@@ -74,6 +75,8 @@ test('NOT: propiedad, leído/no leído, RBAC y eventos de operación', { skip: t
 
   const purchase = await purchaseService.createPurchase({ supplierId: supplier.id, items: [{ productId: product.id, warehouseId: warehouse.id, quantity: 2 }] }, adminId);
   await purchaseService.orderPurchase(purchase.id, adminId);
+  const payable = await AccountsPayable.findOne({ purchase: purchase.id });
+  await financeService.payPayable(payable.id, { amount: payable.balance, paymentMethod: 'cash' }, adminId);
   await purchaseService.receivePurchase(purchase.id, adminId);
   assert.equal(await Notification.countDocuments({ userId: observerId, type: 'purchases.received', recordId: purchase.id }), 1, 'NOT-013 compra recibida');
 

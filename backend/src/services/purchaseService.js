@@ -42,7 +42,7 @@ function pagination(query = {}) {
   return { page, limit, skip: (page - 1) * limit };
 }
 
-function serializePurchase(purchase) {
+function serializePurchase(purchase, payable) {
   const supplier = purchase.supplier && typeof purchase.supplier === 'object' && 'name' in purchase.supplier ? purchase.supplier : null;
   const createdBy = purchase.createdBy && typeof purchase.createdBy === 'object' && 'name' in purchase.createdBy ? purchase.createdBy : null;
   return {
@@ -65,6 +65,7 @@ function serializePurchase(purchase) {
     subtotal: purchase.subtotal, taxes: purchase.taxes, total: purchase.total,
     status: purchase.status, createdBy: createdBy ? { id: String(createdBy._id), name: createdBy.name } : String(purchase.createdBy),
     receivedAt: purchase.receivedAt, cancelledAt: purchase.cancelledAt,
+    paymentStatus: payable?.status || null, paymentBalance: payable ? money(payable.balance) : null,
     createdAt: purchase.createdAt, updatedAt: purchase.updatedAt
   };
 }
@@ -101,13 +102,16 @@ async function listPurchases(query = {}) {
     populatePurchase(Purchase.find(filter).sort({ [sortField]: direction, _id: -1 }).skip(skip).limit(limit).lean()),
     Purchase.countDocuments(filter)
   ]);
-  return { items: purchases.map(serializePurchase), pagination: { page, limit, total, pages: Math.ceil(total / limit) } };
+  const payableSummaries = await financeService.getPayableSummariesForPurchases(purchases.map(item => item._id));
+  return { items: purchases.map(item => serializePurchase(item, payableSummaries.get(String(item._id)))), pagination: { page, limit, total, pages: Math.ceil(total / limit) } };
 }
 
 async function getPurchaseById(id) {
   const purchaseId = objectId(id, 'id');
   const purchase = await populatePurchase(Purchase.findById(purchaseId).lean());
-  return purchase ? serializePurchase(purchase) : null;
+  if (!purchase) return null;
+  const summary = (await financeService.getPayableSummariesForPurchases([purchase._id])).get(String(purchase._id));
+  return serializePurchase(purchase, summary);
 }
 
 async function validateSupplier(id, session) {
@@ -197,6 +201,7 @@ async function orderPurchase(id, actorId) {
     const before = { status: purchase.status };
     purchase.status = 'ordered';
     await purchase.save({ session });
+    await financeService.createPayableForPurchase({ purchase, userId, session });
     await recordAudit({ userId, action: 'purchase.ordered', module: 'purchases', recordId: purchase.id, before, after: purchase, session });
     return serializePurchase(purchase);
   });
@@ -205,10 +210,22 @@ async function orderPurchase(id, actorId) {
 async function receivePurchase(id, actorId) {
   const purchaseId = objectId(id, 'id');
   const userId = objectId(actorId, 'usuario');
+  // Legacy ordered purchases may predate payable creation. Persist their payable
+  // separately so the following payment gate can return 409 without rolling it back.
+  const legacyPurchase = await Purchase.findById(purchaseId).select('status');
+  if (legacyPurchase?.status === 'ordered') {
+    const existingPayable = await financeService.getPayableForPurchase(purchaseId);
+    if (!existingPayable) await runTransaction(async session => {
+      const purchase = await Purchase.findById(purchaseId).session(session);
+      if (purchase?.status === 'ordered') await financeService.createPayableForPurchase({ purchase, userId, session });
+    });
+  }
   return runTransaction(async session => {
     const purchase = await Purchase.findById(purchaseId).session(session);
     if (!purchase) return null;
     if (purchase.status !== 'ordered') throw purchaseError(409, purchase.status === 'received' ? 'PURCHASE_ALREADY_RECEIVED' : 'INVALID_PURCHASE_TRANSITION', purchase.status === 'received' ? 'La compra ya fue recibida' : 'Solo se pueden recibir compras ordenadas');
+    const payable = await financeService.getPayableForPurchase(purchase._id, session);
+    if (!payable || payable.status !== 'paid' || money(payable.balance) > 0) throw purchaseError(409, 'PURCHASE_PAYMENT_PENDING', 'La compra debe estar totalmente pagada antes de poder recibirla.');
     await validateSupplier(purchase.supplier, session);
     for (const item of purchase.items) {
       await inventoryService.receiveForPurchase({ productId: item.product, warehouseId: item.warehouse, quantity: item.quantity, purchaseId: purchase.id, folio: purchase.folio, userId, session });
@@ -217,7 +234,6 @@ async function receivePurchase(id, actorId) {
     purchase.status = 'received';
     purchase.receivedAt = new Date();
     await purchase.save({ session });
-    await financeService.createPayableForPurchase({ purchase, userId, session });
     await recordAudit({ userId, action: 'purchase.received', module: 'purchases', recordId: purchase.id, before, after: purchase, session });
     await notifyPermission('purchases.read', {
       type: 'purchases.received', title: 'Compra recibida', message: `La compra ${purchase.folio} fue recibida.`,
@@ -234,6 +250,7 @@ async function cancelPurchase(id, actorId) {
     const purchase = await Purchase.findById(purchaseId).session(session);
     if (!purchase) return null;
     if (!['draft', 'ordered'].includes(purchase.status)) throw purchaseError(409, 'INVALID_PURCHASE_TRANSITION', 'Las compras recibidas o canceladas no se pueden cancelar directamente');
+    if (purchase.status === 'ordered') await financeService.cancelPayableForPurchase({ purchaseId: purchase._id, userId, session });
     const before = { status: purchase.status, cancelledAt: purchase.cancelledAt };
     purchase.status = 'cancelled';
     purchase.cancelledAt = new Date();

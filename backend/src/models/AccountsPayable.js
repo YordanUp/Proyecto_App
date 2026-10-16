@@ -10,13 +10,18 @@ const schema = new mongoose.Schema({
   status: { type: String, required: true, enum: ['pending', 'partial', 'paid', 'cancelled'], default: 'pending', index: true },
   dueDate: { type: Date, default: null },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  paidAt: { type: Date, default: null }
+  paidAt: { type: Date, default: null },
+  invoiceStatus: { type: String, enum: ['not_invoiced', 'invoiced'], default: 'not_invoiced', index: true },
+  invoiceNumber: { type: String, default: null, trim: true },
+  invoiceGeneratedAt: { type: Date, default: null },
+  invoiceSnapshot: { type: mongoose.Schema.Types.Mixed, default: null }
 }, { timestamps: true, versionKey: false });
 
 schema.index({ folio: 1 }, { unique: true });
 schema.index({ purchase: 1 }, { unique: true });
 schema.index({ status: 1, createdAt: -1 });
 schema.index({ supplier: 1, createdAt: -1 });
+schema.index({ invoiceNumber: 1 }, { unique: true, partialFilterExpression: { invoiceNumber: { $type: 'string' } } });
 schema.pre('validate', function validatePayable(next) {
   const expected = Math.round((this.originalAmount - this.paidAmount) * 100) / 100;
   if (this.paidAmount > this.originalAmount || Math.abs(this.balance - expected) > 0.001) this.invalidate('balance', 'El saldo debe coincidir con el monto original menos lo pagado');
