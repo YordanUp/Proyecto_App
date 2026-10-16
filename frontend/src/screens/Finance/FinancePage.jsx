@@ -1,31 +1,40 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../../services/api';
+import NumericInput from '../../components/NumericInput';
 
 const PAGE_SIZE = 20;
 const LABELS = { pending: 'Pendiente', partial: 'Parcial', paid: 'Pagada', cancelled: 'Cancelada' };
 const money = value => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(value) || 0);
 const can = (user, permission) => Array.isArray(user?.permissions) && user.permissions.includes(permission);
+const roundCurrency = value => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 
 function PaymentDialog({ account, kind, saving, onClose, onSubmit }) {
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(() => String(account.balance));
   const [paymentMethod, setPaymentMethod] = useState('transfer');
   const [description, setDescription] = useState('');
   const [error, setError] = useState('');
   async function submit(event) {
     event.preventDefault(); setError('');
+    if (amount === '') return setError('Ingresa un monto.');
     const value = Number(amount);
-    if (!Number.isFinite(value) || value <= 0) return setError('El pago debe ser mayor a cero.');
-    if (Math.round(value * 100) / 100 > account.balance) return setError(`El pago supera el saldo pendiente de ${money(account.balance)}.`);
+    if (!Number.isFinite(value) || value <= 0) return setError('El monto debe ser mayor a 0.');
+    if (roundCurrency(value) > Number(account.balance)) return setError(`El monto no puede superar el saldo pendiente de ${money(account.balance)}.`);
     try { await onSubmit({ amount: value, paymentMethod, ...(description.trim() ? { description: description.trim() } : {}) }); }
     catch (submitError) { setError(submitError.message || 'No se pudo registrar el pago.'); }
   }
   const label = kind === 'receivable' ? 'Registrar cobro' : 'Registrar pago';
+  const party = kind === 'receivable' ? account.customer?.name : account.supplier?.name;
+  const amountValue = amount === '' ? NaN : Number(amount);
+  const previewIsValid = Number.isFinite(amountValue) && amountValue > 0 && roundCurrency(amountValue) <= Number(account.balance);
+  const previewBalance = previewIsValid ? Math.max(0, roundCurrency(Number(account.balance) - amountValue)) : null;
+  const previewLabel = kind === 'receivable' ? 'Saldo después del cobro' : 'Saldo después del pago';
   return <div className="finance-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
     <section className="card finance-modal" role="dialog" aria-modal="true" aria-labelledby="finance-payment-title">
       <div className="sales-modal-heading"><div><span className="eyebrow">{account.folio}</span><h3 id="finance-payment-title">{label}</h3></div><button type="button" className="users-icon-button" aria-label="Cerrar" onClick={onClose}>×</button></div>
-      <p className="finance-balance-note">Saldo pendiente: <strong>{money(account.balance)}</strong></p>
-      <form onSubmit={submit}>
-        <label>Monto<input type="number" min="0.01" max={account.balance} step="0.01" value={amount} onChange={event => setAmount(event.target.value)} required /></label>
+      <dl className="finance-account-summary"><div><dt>Cuenta</dt><dd>{account.folio}</dd></div>{party ? <div><dt>{kind === 'receivable' ? 'Cliente' : 'Proveedor'}</dt><dd>{party}</dd></div> : null}<div><dt>Importe original</dt><dd>{money(account.originalAmount)}</dd></div><div><dt>Pagado anteriormente</dt><dd>{money(account.paidAmount)}</dd></div><div><dt>Saldo pendiente</dt><dd>{money(account.balance)}</dd></div></dl>
+      <form noValidate onSubmit={submit}>
+        <label>Monto<NumericInput numericMode="decimal" value={amount} onChange={event => setAmount(event.target.value)} /></label>
+        {previewIsValid ? <p className="finance-balance-note" role="status">{previewLabel}: <strong>{money(previewBalance)}</strong></p> : null}
         <label>Método<select value={paymentMethod} onChange={event => setPaymentMethod(event.target.value)}><option value="transfer">Transferencia</option><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="check">Cheque</option><option value="other">Otro</option></select></label>
         <label>Descripción (opcional)<input maxLength="300" value={description} onChange={event => setDescription(event.target.value)} placeholder="Referencia del cobro o pago" /></label>
         {error ? <p className="form-error" role="alert">{error}</p> : null}
@@ -78,7 +87,8 @@ export default function FinancePage({ session }) {
     setSaving(true); setError('');
     try {
       const result = await apiRequest(endpoint, { method: 'POST', body: JSON.stringify(input) });
-      setNotice(`${result.data.account.folio}: pago registrado. Saldo restante ${money(result.data.account.balance)}.`);
+      const action = kind === 'receivable' ? 'cobro' : 'pago';
+      setNotice(`${result.data.account.folio}: ${action} registrado. Saldo restante ${money(result.data.account.balance)}.`);
       setActiveAccount(null); await loadAll();
     } catch (paymentError) { throw paymentError; }
     finally { setSaving(false); }
