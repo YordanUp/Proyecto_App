@@ -79,6 +79,7 @@ router.get('/', (req, res) => {
         'POST /api/finance/receivables/:id/payments',
         'GET /api/finance/payables',
         'GET /api/finance/payables/:id',
+        'POST /api/finance/payables/:id/reject',
         'POST /api/finance/payables/:id/payments',
         'GET /api/finance/movements',
         'GET /api/sales/quotations',

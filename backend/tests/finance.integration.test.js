@@ -133,9 +133,46 @@ test('MongoDB integration: receivables, payables, payments and source transactio
   assert.equal(payableList.status, 200);
   assert.equal(payableList.body.data.some(item => item.id === String(payable.id)), true);
   assert.equal((await request(app).get(`/api/finance/payables/${payable.id}`).set(auth)).status, 200);
+  const rejectPurchase = await createPurchase(2);
+  assert.equal((await request(app).post(`/api/purchases/${rejectPurchase.id}/order`).set(auth).send({})).status, 200);
+  const rejectAccount = await AccountsPayable.findOne({ purchase: rejectPurchase.id });
+  const rejectStockBefore = await InventoryStock.findOne({ productId: product.id, warehouseId: warehouse.id }).lean();
+  const rejectMovementsBefore = await InventoryMovement.countDocuments({ referenceType: 'purchase', referenceId: rejectPurchase.id });
+  const rejected = await request(app).post(`/api/finance/payables/${rejectAccount.id}/reject`).set(auth).send({});
+  assert.equal(rejected.status, 200);
+  assert.equal(rejected.body.message, 'Compra rechazada correctamente.');
+  assert.equal((await AccountsPayable.findById(rejectAccount.id)).status, 'cancelled');
+  const rejectedSource = await Purchase.findById(rejectPurchase.id);
+  assert.equal(rejectedSource.status, 'cancelled');
+  assert.ok(rejectedSource.cancelledAt);
+  assert.equal((await InventoryStock.findOne({ productId: product.id, warehouseId: warehouse.id })).quantity, rejectStockBefore.quantity);
+  assert.equal(await InventoryMovement.countDocuments({ referenceType: 'purchase', referenceId: rejectPurchase.id }), rejectMovementsBefore);
+  assert.equal((await request(app).post(`/api/purchases/${rejectPurchase.id}/receive`).set(auth).send({})).status, 409);
+  assert.equal(await AuditLog.countDocuments({ action: 'purchase.cancelled', module: 'purchases', recordId: rejectPurchase.id }), 1);
+  assert.equal((await request(app).post(`/api/finance/payables/${rejectAccount.id}/reject`).set(auth).send({})).body.error, 'PURCHASE_ALREADY_CANCELLED');
+  const rollbackRejectPurchase = await createPurchase(1);
+  assert.equal((await request(app).post(`/api/purchases/${rollbackRejectPurchase.id}/order`).set(auth).send({})).status, 200);
+  const rollbackRejectAccount = await AccountsPayable.findOne({ purchase: rollbackRejectPurchase.id });
+  const originalAuditCreate = AuditLog.create;
+  AuditLog.create = function failPurchaseCancellationAudit(entries, ...args) {
+    const list = Array.isArray(entries) ? entries : [entries];
+    if (list.some(entry => entry.action === 'purchase.cancelled' && entry.recordId === rollbackRejectPurchase.id)) throw new Error('FIN-REJECT simulated audit failure');
+    return originalAuditCreate.call(this, entries, ...args);
+  };
+  let rollbackReject;
+  try { rollbackReject = await request(app).post(`/api/finance/payables/${rollbackRejectAccount.id}/reject`).set(auth).send({}); }
+  finally { AuditLog.create = originalAuditCreate; }
+  assert.equal(rollbackReject.status, 500);
+  assert.equal((await AccountsPayable.findById(rollbackRejectAccount.id)).status, 'pending');
+  assert.equal((await Purchase.findById(rollbackRejectPurchase.id)).status, 'ordered');
   const concurrentPurchases = await Promise.all([createPurchase(1), createPurchase(1)]);
   const concurrentReceipts = await Promise.all(concurrentPurchases.map(receivePurchase));
   assert.ok(concurrentReceipts.every(response => response.status === 200));
+  const receivedAccount = await AccountsPayable.findOne({ purchase: concurrentPurchases[0].id });
+  const rejectReceived = await request(app).post(`/api/finance/payables/${receivedAccount.id}/reject`).set(auth).send({});
+  assert.equal(rejectReceived.status, 409);
+  assert.equal(rejectReceived.body.error, 'PURCHASE_ALREADY_RECEIVED');
+  assert.equal(rejectReceived.body.message, 'No se puede rechazar una compra que ya fue recibida.');
   const concurrentPayables = await AccountsPayable.find({ purchase: { $in: concurrentPurchases.map(item => item.id) } }).lean();
   assert.equal(concurrentPayables.length, 2);
   assert.equal(new Set(concurrentPayables.map(item => item.folio)).size, 2, 'FIN-013: folios CXP concurrentes únicos');
@@ -145,6 +182,11 @@ test('MongoDB integration: receivables, payables, payments and source transactio
   assert.equal(partialPayable.body.data.account.paidAmount, 300);
   assert.equal(partialPayable.body.data.account.balance, 700);
   assert.equal(partialPayable.body.data.account.status, 'partial');
+  const rejectPaid = await request(app).post(`/api/finance/payables/${payable.id}/reject`).set(auth).send({});
+  assert.equal(rejectPaid.status, 409);
+  assert.equal(rejectPaid.body.error, 'PURCHASE_HAS_PAYMENTS');
+  assert.equal(rejectPaid.body.message, 'No se puede rechazar una compra con pagos registrados.');
+  assert.equal((await Purchase.findById(purchase.id)).status, 'ordered');
   assert.equal(partialPayable.body.data.movement.direction, 'OUT');
   assert.equal((await request(app).post(`/api/purchases/${purchase.id}/receive`).set(auth).send({})).status, 409, 'parcialmente pagada aún bloquea recepción');
   const overpayPayable = await request(app).post(`/api/finance/payables/${payable.id}/payments`).set(auth).send({ amount: 701 });
@@ -266,13 +308,14 @@ test('MongoDB integration: receivables, payables, payments and source transactio
   assert.equal((await InventoryStock.findOne({ productId: product.id, warehouseId: warehouse.id })).quantity, purchaseStockBefore.quantity);
 
   // FIN-012: read-only finance users cannot post either side's payments.
-  const readRole = await Role.create({ name: `finance-reader-${process.pid}`, permissions: ['finance.read'] });
-  const reader = await User.create({ name: 'Lector financiero', email: `finance-reader-${process.pid}@test.invalid`, passwordHash: await hashPassword('clave-lector-finanzas-larga'), role: readRole.id });
+  const readRole = await Role.create({ name: `finance-supervisor-${process.pid}`, permissions: ['finance.read'] });
+  const reader = await User.create({ name: 'Supervisor financiero', email: `finance-supervisor-${process.pid}@test.invalid`, passwordHash: await hashPassword('clave-lector-finanzas-larga'), role: readRole.id });
   const readerLogin = await request(app).post('/api/auth/login').send({ email: reader.email, password: 'clave-lector-finanzas-larga' });
   const readerAuth = { Authorization: `Bearer ${readerLogin.body.data.token}` };
   assert.equal((await request(app).get('/api/finance/receivables').set(readerAuth)).status, 200);
   assert.equal((await request(app).post(`/api/finance/receivables/${rollbackAccount.id}/payments`).set(readerAuth).send({ amount: 1 })).status, 403);
   assert.equal((await request(app).post(`/api/finance/payables/${payable.id}/payments`).set(readerAuth).send({ amount: 1 })).status, 403);
+  assert.equal((await request(app).post(`/api/finance/payables/${rejectAccount.id}/reject`).set(readerAuth).send({})).status, 403);
 
   const movements = await request(app).get('/api/finance/movements?from=2026-01-01&to=2030-12-31&page=1&limit=100').set(auth);
   assert.equal(movements.status, 200);

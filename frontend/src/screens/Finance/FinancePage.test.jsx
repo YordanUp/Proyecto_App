@@ -1,11 +1,11 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import FinancePage from './FinancePage';
 import { apiRequest } from '../../services/api';
 
 vi.mock('../../services/api', () => ({ API_URL: 'http://localhost:4000', apiRequest: vi.fn() }));
 
 const receivable = { id: 'ar-1', folio: 'CXC-2026-000001', customer: { id: 'customer-1', name: 'Cliente Uno' }, sale: { id: 'sale-1', folio: 'VEN-2026-000001' }, originalAmount: 1000, paidAmount: 0, balance: 1000, status: 'pending' };
-const payable = { id: 'ap-1', folio: 'CXP-2026-000001', supplier: { id: 'supplier-1', name: 'Proveedor Uno' }, purchase: { id: 'purchase-1', folio: 'COM-2026-000001' }, originalAmount: 500, paidAmount: 200, balance: 300, status: 'partial' };
+const payable = { id: 'ap-1', folio: 'CXP-2026-000001', supplier: { id: 'supplier-1', name: 'Proveedor Uno' }, purchase: { id: 'purchase-1', folio: 'COM-2026-000001', status: 'ordered' }, originalAmount: 500, paidAmount: 200, balance: 300, status: 'partial' };
 const movement = { id: 'movement-1', type: 'RECEIVABLE_PAYMENT', direction: 'IN', amount: 400, accountFolio: receivable.folio, referenceFolio: 'VEN-2026-000001', description: 'Cobro', createdBy: { name: 'Operador' }, createdAt: '2026-01-01T12:00:00.000Z' };
 const session = { token: 'token', user: { id: 'user-1', permissions: ['finance.read', 'finance.receive_payment', 'finance.make_payment'] } };
 
@@ -17,6 +17,7 @@ function setupApi({ paymentError = null, receivableAccount = receivable, payable
     if (path.startsWith('/api/finance/receivables?')) return Promise.resolve({ data: [receivableAccount], pagination: { page: 1, limit: 20, total: 1, pages: 1 } });
     if (path.startsWith('/api/finance/payables?')) return Promise.resolve({ data: [payableAccount], pagination: { page: 1, limit: 20, total: 1, pages: 1 } });
     if (path.startsWith('/api/finance/movements?')) return Promise.resolve({ data: [movement], pagination: { page: 1, limit: 20, total: 1, pages: 1 } });
+    if (path.endsWith('/reject') && options.method === 'POST') return Promise.resolve({ message: 'Compra rechazada correctamente.' });
     if (path.endsWith('/payments') && options.method === 'POST') {
       const isPayable = path.includes('/payables/');
       const account = isPayable ? payableAccount : receivableAccount;
@@ -104,9 +105,41 @@ describe('FinancePage', () => {
     expect(screen.getByRole('button', { name: 'Descargar factura' })).toBeInTheDocument();
   });
 
+  it('rechaza una compra impaga con confirmación y refresca la lista', async () => {
+    const account = { ...payable, paidAmount: 0, balance: 500, status: 'pending' };
+    setupApi({ payableAccount: account });
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<FinancePage session={session} />); fireEvent.click(await screen.findByRole('button', { name: 'Cuentas por pagar' }));
+    const button = await screen.findByRole('button', { name: 'Rechazar compra' });
+    fireEvent.click(button);
+    expect(confirm).toHaveBeenCalledWith('¿Rechazar esta compra? La compra será cancelada y no podrá recibirse.');
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(`/api/finance/payables/${account.id}/reject`, { method: 'POST' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Compra rechazada correctamente.');
+    expect(apiRequest.mock.calls.filter(([path]) => path.startsWith('/api/finance/payables?')).length).toBeGreaterThan(1);
+    vi.restoreAllMocks();
+  });
+
+  it('oculta rechazar compra si tiene pagos, ya fue cancelada, recibida o falta permiso', async () => {
+    for (const account of [
+      { ...payable, paidAmount: 1 },
+      { ...payable, status: 'cancelled', paidAmount: 0 },
+      { ...payable, paidAmount: 0, purchase: { ...payable.purchase, status: 'received' } }
+    ]) {
+      setupApi({ payableAccount: account }); render(<FinancePage session={session} />);
+      fireEvent.click(await screen.findByRole('button', { name: 'Cuentas por pagar' }));
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Rechazar compra' })).not.toBeInTheDocument());
+      cleanup();
+    }
+    setupApi({ payableAccount: { ...payable, paidAmount: 0 } });
+    render(<FinancePage session={{ ...session, user: { ...session.user, permissions: ['finance.read'] } }} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Cuentas por pagar' }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Rechazar compra' })).not.toBeInTheDocument());
+  });
+
   it('rechaza en la interfaz un sobrepago y comunica un error del servidor', async () => {
     const account = { ...receivable, originalAmount: 10000, paidAmount: 4000, balance: 6000 };
     setupApi({ paymentError: 'El saldo cambió por otro pago; vuelve a consultar la cuenta', receivableAccount: account });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
     render(<FinancePage session={session} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Registrar cobro' }));
     const dialog = await screen.findByRole('dialog');
@@ -117,6 +150,7 @@ describe('FinancePage', () => {
     fireEvent.change(within(dialog).getByLabelText('Monto'), { target: { value: '500' } });
     fireEvent.submit(within(dialog).getByRole('button', { name: 'Registrar cobro' }).closest('form'));
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('El saldo cambió por otro pago');
+    vi.restoreAllMocks();
   });
 
   it('FIN-UX accepts total payment and previews zero; wheel leaves amount unchanged', async () => {

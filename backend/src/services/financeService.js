@@ -110,6 +110,32 @@ async function cancelPayableForPurchase({ purchaseId, userId, session }) {
   return account;
 }
 
+async function rejectPurchaseFromPayable(id, userId) {
+  const accountId = objectId(id);
+  const actorId = objectId(userId, 'usuario');
+  return runTransaction(async session => {
+    const account = await AccountsPayable.findById(accountId).session(session);
+    if (!account) throw financeError(404, 'PAYABLE_NOT_FOUND', 'La cuenta por pagar no existe');
+    const purchase = await Purchase.findById(account.purchase).session(session);
+    if (!purchase) throw financeError(404, 'PURCHASE_NOT_FOUND', 'La compra asociada no existe');
+    if (purchase.status === 'received') throw financeError(409, 'PURCHASE_ALREADY_RECEIVED', 'No se puede rechazar una compra que ya fue recibida.');
+    if (account.paidAmount > 0) throw financeError(409, 'PURCHASE_HAS_PAYMENTS', 'No se puede rechazar una compra con pagos registrados.');
+    if (purchase.status === 'cancelled' || account.status === 'cancelled') throw financeError(409, 'PURCHASE_ALREADY_CANCELLED', 'La compra ya fue cancelada.');
+    if (purchase.status !== 'ordered') throw financeError(409, 'INVALID_PURCHASE_TRANSITION', 'Solo se pueden rechazar compras ordenadas.');
+
+    const accountBefore = { status: account.status, balance: account.balance };
+    const purchaseBefore = { status: purchase.status, cancelledAt: purchase.cancelledAt };
+    account.status = 'cancelled';
+    purchase.status = 'cancelled';
+    purchase.cancelledAt = new Date();
+    await account.save({ session });
+    await purchase.save({ session });
+    await recordAudit({ userId: actorId, action: 'payable.cancelled', module: 'finance', recordId: account.id, before: accountBefore, after: { status: account.status, balance: account.balance }, session });
+    await recordAudit({ userId: actorId, action: 'purchase.cancelled', module: 'purchases', recordId: purchase.id, before: purchaseBefore, after: { status: purchase.status, cancelledAt: purchase.cancelledAt }, session });
+    return serializeAccount(account, 'payable');
+  });
+}
+
 function pagination(query = {}) {
   const requestedPage = Number(query.page);
   const page = Number.isFinite(requestedPage) && requestedPage >= 1 ? Math.floor(requestedPage) : 1;
@@ -149,7 +175,7 @@ function serializeAccount(account, kind) {
     id: String(account._id), folio: account.folio,
     [isReceivable ? 'customer' : 'supplier']: party && typeof party === 'object' && 'name' in party ? { id: String(party._id), name: party.name, email: party.email } : { id: String(party) },
     [isReceivable ? 'customerId' : 'supplierId']: String(party?._id || party),
-    [isReceivable ? 'sale' : 'purchase']: source && typeof source === 'object' && 'folio' in source ? { id: String(source._id), folio: source.folio } : { id: String(source) },
+    [isReceivable ? 'sale' : 'purchase']: source && typeof source === 'object' && 'folio' in source ? { id: String(source._id), folio: source.folio, ...(source.status ? { status: source.status } : {}) } : { id: String(source) },
     originalAmount: account.originalAmount, paidAmount: account.paidAmount, balance: account.balance,
     status: account.status, dueDate: account.dueDate, paidAt: account.paidAt,
     ...(isReceivable ? {} : { invoiceStatus: account.invoiceStatus || 'not_invoiced', invoiceNumber: account.invoiceNumber || null, invoiceGeneratedAt: account.invoiceGeneratedAt || null }),
@@ -220,7 +246,7 @@ async function generatePayableInvoice(id, userId) {
 function accountPopulation(query, kind) {
   return kind === 'receivable'
     ? query.populate('customer', 'name email').populate('sale', 'folio').populate('createdBy', 'name')
-    : query.populate('supplier', 'name email').populate('purchase', 'folio').populate('createdBy', 'name');
+    : query.populate('supplier', 'name email').populate('purchase', 'folio status').populate('createdBy', 'name');
 }
 
 async function listAccounts(kind, query = {}) {
@@ -394,7 +420,7 @@ async function applySalesReturn({ sale, returnAmount, cumulativeReturnTotal, use
 }
 
 module.exports = {
-  createReceivableForSale, createPayableForPurchase, getPayableForPurchase, cancelPayableForPurchase, cancelReceivableForSale, applySalesReturn,
+  createReceivableForSale, createPayableForPurchase, getPayableForPurchase, cancelPayableForPurchase, rejectPurchaseFromPayable, cancelReceivableForSale, applySalesReturn,
   listReceivables: query => listAccounts('receivable', query),
   getReceivable: id => getAccount('receivable', id),
   payReceivable: (id, input, actorId) => recordPayment('receivable', id, input, actorId),

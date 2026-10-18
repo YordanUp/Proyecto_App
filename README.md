@@ -92,6 +92,7 @@ La suite backend incluye pruebas de esquema/hash y suites de integración que so
 
 - Ordenar una compra crea su CxP de forma idempotente y no cambia existencias. Finanzas registra pagos parciales; Compras solo puede recibir cuando el saldo sea cero. El backend aplica el bloqueo aunque se invoque la API directamente. Las compras antiguas ordenadas sin CxP reciben una cuenta pendiente al intentar recibir; las ya recibidas no se vuelven a evaluar.
 - `GET /api/finance/payables/:id/invoice` genera y descarga un DOCX de simulación. Requiere `finance.make_payment`, conserva el folio `FAC-AAAA-######` y una instantánea de contenido para regenerarlo sin crear una factura distinta. No es CFDI y no tiene validez fiscal.
+- `POST /api/finance/payables/:id/reject` cancela en una transacción la CxP y su compra ordenada cuando aún no tiene pagos; conserva el saldo histórico, la información de factura y no modifica inventario. Requiere `finance.make_payment`.
 
 ## Limitaciones y siguiente etapa
 

@@ -32,6 +32,10 @@ module.exports = {
   payReceivable: paymentHandler(service.payReceivable, 'Cobro'),
   getPayables: listHandler(service.listPayables, 'Cuentas por pagar'),
   getPayable: detailHandler(service.getPayable, 'Cuenta por pagar', 'PAYABLE_NOT_FOUND'),
+  rejectPayablePurchase: async (req, res, next) => {
+    try { return successResponse(res, 200, 'Compra rechazada correctamente.', await service.rejectPurchaseFromPayable(req.params.id, req.user.id)); }
+    catch (error) { return next(error); }
+  },
   payPayable: paymentHandler(service.payPayable, 'Pago'),
   getMovements: listHandler(service.listMovements, 'Movimientos financieros'),
   downloadPayableInvoice: async (req, res, next) => {

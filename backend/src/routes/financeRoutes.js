@@ -11,6 +11,7 @@ router.post('/receivables/:id/payments', authorize(['finance.receive_payment']),
 router.get('/payables', authorize(['finance.read']), controller.getPayables);
 router.get('/payables/:id', authorize(['finance.read']), controller.getPayable);
 router.get('/payables/:id/invoice', authorize(['finance.make_payment']), controller.downloadPayableInvoice);
+router.post('/payables/:id/reject', authorize(['finance.make_payment']), controller.rejectPayablePurchase);
 router.post('/payables/:id/payments', authorize(['finance.make_payment']), controller.payPayable);
 router.get('/movements', authorize(['finance.read']), controller.getMovements);
 // The former generic payments endpoint is a read-only alias to the immutable movement ledger.
